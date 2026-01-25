@@ -1,7 +1,9 @@
-Humble New Tab Page
-===================
+TX Humble New Tab Page
+======================
 
 Redesigned new tab page featuring your bookmarks, apps, most visited, and recently closed in a custom layout.
+
+This is a fork of the original [Humble New Tab Page](https://github.com/nicovank/nicovank.github.io) by nicovank.
 
 ![](media/shot.1.png)
 
@@ -10,10 +12,7 @@ Redesigned new tab page featuring your bookmarks, apps, most visited, and recent
 - Simple, clean design
 - Highly customizable
 - Fast loading and lightweight
-
-[Download for Chrome](https://chrome.google.com/webstore/detail/mfgdmpfihlmdekaclngibpjhdebndhdj)
-
-[Download for Firefox](https://addons.mozilla.org/firefox/addon/humble-new-tab/)
+- **10 independent pages** with page switcher (new in v2.0.0)
 
 This extension replaces the default new tab page. Drag and drop folders to create new columns or reorder them. The font, colors, spacing, and more can be customized from the options menu.
 
@@ -34,6 +33,17 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 
 Changelog
 ---------
+
+### Version 2.0.0 - January 25, 2026
+
+**Forked by Toni-X** - Development continues independently from the original project.
+
+- Added 10 independent pages with page switcher in top-left corner
+- Each page maintains its own bookmark layout
+- Keyboard shortcuts: press 1-9 for pages 1-9, press 0 for page 10
+- Existing bookmarks are automatically migrated to page 1
+- Last active page is remembered across sessions
+- Renamed extension to "TX Humble New Tab Page"
 
 ### Version 1.26.2 - April 9, 2025
 

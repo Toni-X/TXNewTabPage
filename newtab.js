@@ -847,6 +847,15 @@ function switchPage(pageNum) {
 		}
 	});
 
+	// Update options UI for per-page settings (show_* checkboxes)
+	if (settingsInitialized) {
+		for (var key in config) {
+			if (key.substring(0, 5) === 'show_') {
+				showConfig(key);
+			}
+		}
+	}
+
 	// Reset root to force reload from bookmarks
 	root = null;
 
@@ -1242,7 +1251,12 @@ var theme = {};
 
 // get config value or default
 function getConfig(key) {
-	var value = localStorage.getItem('options.' + key);
+	// Per-page options: show_* settings
+	var storageKey = 'options.' + key;
+	if (key.substring(0, 5) === 'show_') {
+		storageKey = getPagePrefix() + 'options.' + key;
+	}
+	var value = localStorage.getItem(storageKey);
 	if (value != null)
 		return typeof config[key] === 'number' ? Number(value) : value;
 	else
@@ -1251,10 +1265,15 @@ function getConfig(key) {
 
 // set config value
 function setConfig(key, value) {
+	// Per-page options: show_* settings
+	var storageKey = 'options.' + key;
+	if (key.substring(0, 5) === 'show_') {
+		storageKey = getPagePrefix() + 'options.' + key;
+	}
 	if (value != null)
-		localStorage.setItem('options.' + key, typeof config[key] === 'number' ? Number(value) : value);
+		localStorage.setItem(storageKey, typeof config[key] === 'number' ? Number(value) : value);
 	else {
-		localStorage.removeItem('options.' + key);
+		localStorage.removeItem(storageKey);
 		value = (theme.hasOwnProperty(key) ? theme[key] : config[key]);
 	}
 	// special case settings

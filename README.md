@@ -34,6 +34,10 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 Changelog
 ---------
 
+### Version 2.0.1 - January 25, 2026
+
+- Content visibility options (Apps, Most visited, etc.) are now independent per page
+
 ### Version 2.0.0 - January 25, 2026
 
 Development continues independently from the original project.

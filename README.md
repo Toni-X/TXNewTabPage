@@ -37,13 +37,7 @@ Changelog
 ### Version 2.0.3 - January 25, 2026
 
 - Fixed empty background-image CSS rule when no image file is set
-
-### Version 2.0.2 - January 25, 2026
-
 - Fixed reset button visibility not updating when switching pages
-
-### Version 2.0.1 - January 25, 2026
-
 - Content visibility options (Apps, Most visited, etc.) are now independent per page
 
 ### Version 2.0.0 - January 25, 2026
@@ -225,5 +219,6 @@ Development continues independently from the original project.
 ### Version 1.0 - July 17, 2011
 
 - Initial release
+
 
 

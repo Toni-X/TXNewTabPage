@@ -821,6 +821,96 @@ var columns; // columns[x][y] = id
 var root; // root[] = id
 var coords; // coords[id] = {x:x, y:y}
 var special = ['apps', 'top', 'recent', 'closed', 'devices'];
+var currentPage = 1; // current page (1-10)
+
+// migrate old data (without page prefix) to page 1
+function migrateOldData() {
+	// Check if migration already done
+	if (localStorage.getItem('pages.migrated')) return;
+
+	// Check if there's old data (column.0.0 exists but page.1.column.0.0 doesn't)
+	var oldData = localStorage.getItem('column.0.0');
+	var newData = localStorage.getItem('page.1.column.0.0');
+
+	if (oldData && !newData) {
+		// Migrate all column.X.Y to page.1.column.X.Y
+		for (var x = 0; ; x++) {
+			var foundInRow = false;
+			for (var y = 0; ; y++) {
+				var key = 'column.' + x + '.' + y;
+				var id = localStorage.getItem(key);
+				if (id) {
+					localStorage.setItem('page.1.' + key, id);
+					localStorage.removeItem(key);
+					foundInRow = true;
+				} else {
+					break;
+				}
+			}
+			if (!foundInRow) break;
+		}
+	}
+
+	localStorage.setItem('pages.migrated', 'true');
+}
+
+// get storage key prefix for current page
+function getPagePrefix() {
+	return 'page.' + currentPage + '.';
+}
+
+// switch to a different page
+function switchPage(pageNum) {
+	if (pageNum < 1 || pageNum > 10 || pageNum === currentPage) return;
+
+	// Save current page number
+	currentPage = pageNum;
+	localStorage.setItem('currentPage', currentPage);
+
+	// Update active button
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		var btnPage = parseInt(btn.getAttribute('data-page'));
+		if (btnPage === currentPage) {
+			btn.classList.add('active');
+		} else {
+			btn.classList.remove('active');
+		}
+	});
+
+	// Reset root to force reload from bookmarks
+	root = null;
+
+	// Reload columns for the new page
+	loadColumns();
+}
+
+// initialize page switcher buttons
+function initPageSwitcher() {
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		btn.onclick = function() {
+			var pageNum = parseInt(this.getAttribute('data-page'));
+			switchPage(pageNum);
+			return false;
+		};
+	});
+
+	// Load saved current page
+	var savedPage = localStorage.getItem('currentPage');
+	if (savedPage) {
+		currentPage = parseInt(savedPage);
+		// Update active button
+		buttons.forEach(function(btn) {
+			var btnPage = parseInt(btn.getAttribute('data-page'));
+			if (btnPage === currentPage) {
+				btn.classList.add('active');
+			} else {
+				btn.classList.remove('active');
+			}
+		});
+	}
+}
 
 // ensure root folders are included
 function verifyColumns() {
@@ -864,11 +954,12 @@ function verifyColumns() {
 
 // load columns from storage or default
 function loadColumns() {
+	var prefix = getPagePrefix();
 	columns = [];
 	for (var x = 0; ; x++) {
 		var row = [];
 		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
+			var id = localStorage.getItem(prefix + 'column.' + x + '.' + y);
 			if (id) row.push(id); else break;
 		}
 		if (row.length > 0) columns.push(row); else break;
@@ -894,12 +985,13 @@ function loadColumns() {
 
 // saves current column configuration to storage
 function saveColumns() {
+	var prefix = getPagePrefix();
 	// clear previous config
 	for (var x = 0; ; x++) {
 		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
+			var id = localStorage.getItem(prefix + 'column.' + x + '.' + y);
 			if (id)
-				localStorage.removeItem('column.' + x + '.' + y);
+				localStorage.removeItem(prefix + 'column.' + x + '.' + y);
 			else
 				break;
 		}
@@ -910,7 +1002,7 @@ function saveColumns() {
 	// save new config
 	for (var x = 0; x < columns.length; x++) {
 		for (var y = 0; y < columns[x].length; y++) {
-			localStorage.setItem('column.' + x +'.' + y, columns[x][y]);
+			localStorage.setItem(prefix + 'column.' + x +'.' + y, columns[x][y]);
 		}
 	}
 	// refresh
@@ -1579,6 +1671,8 @@ function showOptions(show) {
 }
 
 // initialize page
+migrateOldData();
+initPageSwitcher();
 loadSettings();
 loadColumns();
 
@@ -1587,6 +1681,19 @@ document.addEventListener('keypress', function(event) {
 	if (event.keyCode == 13 && event.target && event.target.onclick && event.target.tagName == 'A') {
 		event.target.dispatchEvent(new MouseEvent('click'));
 		event.preventDefault();
+	}
+
+	// Page switching with number keys (1-9 for pages 1-9, 0 for page 10)
+	// Only when not typing in an input field
+	if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+		var key = event.key;
+		if (key >= '1' && key <= '9') {
+			switchPage(parseInt(key));
+			event.preventDefault();
+		} else if (key === '0') {
+			switchPage(10);
+			event.preventDefault();
+		}
 	}
 });
 document.addEventListener('mousedown', function(event) {

@@ -3,7 +3,7 @@ TX Humble New Tab Page
 
 Redesigned new tab page featuring your bookmarks, apps, most visited, and recently closed in a custom layout.
 
-This is a fork of the original [Humble New Tab Page](https://github.com/nicovank/nicovank.github.io) by nicovank.
+This is a fork of the original [Humble New Tab Page](https://github.com/ibillingsley/HumbleNewTabPage) by ibillingsley.
 
 ![](media/shot.1.png)
 
@@ -36,7 +36,7 @@ Changelog
 
 ### Version 2.0.0 - January 25, 2026
 
-**Forked by Toni-X** - Development continues independently from the original project.
+- Development continues independently from the original project.
 
 - Added 10 independent pages with page switcher in top-left corner
 - Each page maintains its own bookmark layout and folder open/close state
@@ -213,3 +213,4 @@ Changelog
 ### Version 1.0 - July 17, 2011
 
 - Initial release
+

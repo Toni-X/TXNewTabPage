@@ -34,6 +34,10 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 Changelog
 ---------
 
+### Version 2.0.3 - January 25, 2026
+
+- Fixed empty background-image CSS rule when no image file is set
+
 ### Version 2.0.2 - January 25, 2026
 
 - Fixed reset button visibility not updating when switching pages

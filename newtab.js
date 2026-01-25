@@ -1318,9 +1318,9 @@ function getStyle(key, value) {
 		case 'background_color':
 			return 'body { background-color: ' + value + '; }';
 		case 'background_image':
-			return 'body { background-image: url(' + value + '); }';
+			return value ? 'body { background-image: url(' + value + '); }' : null;
 		case 'background_image_file':
-			return 'body { background-image: url(' + value + '); }';
+			return value ? 'body { background-image: url(' + value + '); }' : null;
 		case 'background_align':
 			return 'body { background-position: ' + value + '; }';
 		case 'background_repeat':

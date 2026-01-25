@@ -60,7 +60,7 @@ function render(node, target) {
 	// folder
 	if (node.children) {
 		// render children
-		if (a.open || getConfig('remember_open') && localStorage.getItem('open.' + node.id)) {
+		if (a.open || getConfig('remember_open') && localStorage.getItem(getPagePrefix() + 'open.' + node.id)) {
 			setClass(a, node, true);
 			a.open = true;
 			getChildrenFunction(node)(function(result) {
@@ -716,7 +716,7 @@ function toggle(node, a) {
 	a.open = !isopen;
 	if (isopen) {
 		// close folder
-		localStorage.removeItem('open.' + node.id);
+		localStorage.removeItem(getPagePrefix() + 'open.' + node.id);
 		if (a.nextSibling){
 			// auto-close child folders
 			if (getConfig('auto_close')) {
@@ -732,7 +732,7 @@ function toggle(node, a) {
 		}
 	} else {
 		// open folder
-		localStorage.setItem('open.' + node.id, true);
+		localStorage.setItem(getPagePrefix() + 'open.' + node.id, true);
 		// auto-close sibling folders
 		if (getConfig('auto_close')) {
 			var siblings = a.parentNode.parentNode.children;
@@ -822,37 +822,6 @@ var root; // root[] = id
 var coords; // coords[id] = {x:x, y:y}
 var special = ['apps', 'top', 'recent', 'closed', 'devices'];
 var currentPage = 1; // current page (1-10)
-
-// migrate old data (without page prefix) to page 1
-function migrateOldData() {
-	// Check if migration already done
-	if (localStorage.getItem('pages.migrated')) return;
-
-	// Check if there's old data (column.0.0 exists but page.1.column.0.0 doesn't)
-	var oldData = localStorage.getItem('column.0.0');
-	var newData = localStorage.getItem('page.1.column.0.0');
-
-	if (oldData && !newData) {
-		// Migrate all column.X.Y to page.1.column.X.Y
-		for (var x = 0; ; x++) {
-			var foundInRow = false;
-			for (var y = 0; ; y++) {
-				var key = 'column.' + x + '.' + y;
-				var id = localStorage.getItem(key);
-				if (id) {
-					localStorage.setItem('page.1.' + key, id);
-					localStorage.removeItem(key);
-					foundInRow = true;
-				} else {
-					break;
-				}
-			}
-			if (!foundInRow) break;
-		}
-	}
-
-	localStorage.setItem('pages.migrated', 'true');
-}
 
 // get storage key prefix for current page
 function getPagePrefix() {
@@ -1671,7 +1640,6 @@ function showOptions(show) {
 }
 
 // initialize page
-migrateOldData();
 initPageSwitcher();
 loadSettings();
 loadColumns();

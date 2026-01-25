@@ -39,9 +39,8 @@ Changelog
 **Forked by Toni-X** - Development continues independently from the original project.
 
 - Added 10 independent pages with page switcher in top-left corner
-- Each page maintains its own bookmark layout
+- Each page maintains its own bookmark layout and folder open/close state
 - Keyboard shortcuts: press 1-9 for pages 1-9, press 0 for page 10
-- Existing bookmarks are automatically migrated to page 1
 - Last active page is remembered across sessions
 - Renamed extension to "TX Humble New Tab Page"
 

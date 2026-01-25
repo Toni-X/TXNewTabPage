@@ -852,6 +852,7 @@ function switchPage(pageNum) {
 		for (var key in config) {
 			if (key.substring(0, 5) === 'show_') {
 				showConfig(key);
+				onChange(key);  // Also update reset button visibility
 			}
 		}
 	}

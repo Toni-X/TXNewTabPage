@@ -394,6 +394,13 @@ input[type="file"]::-webkit-file-upload-button {
 #search-results a:hover, #search-results a.selected {
 	background-color: #e4f4ff;
 }
+#search-results .search-icon {
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	vertical-align: middle;
+	flex-shrink: 0;
+}
 #search-results .search-url {
 	display: block;
 	font-size: 11px;
@@ -401,6 +408,7 @@ input[type="file"]::-webkit-file-upload-button {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	margin-left: 24px;
 }
 #search-results .search-google {
 	color: #57b0ff;

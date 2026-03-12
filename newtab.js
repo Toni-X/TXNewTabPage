@@ -1735,7 +1735,7 @@ function searchBookmarks(query) {
 	}
 	chrome.bookmarks.search(query, function(results) {
 		// filter to only bookmarks with URLs (no folders)
-		var bookmarks = results.filter(function(b) { return b.url; }).slice(0, 10);
+		var bookmarks = results.filter(function(b) { return b.url; }).slice(0, 20);
 		showSearchResults(bookmarks, query);
 	});
 }
@@ -1754,6 +1754,13 @@ function showSearchResults(bookmarks, query) {
 		var a = document.createElement('a');
 		a.href = bookmarks[i].url;
 		a.title = bookmarks[i].url;
+
+		// Add favicon
+		var icon = document.createElement('img');
+		icon.className = 'search-icon';
+		icon.src = '/_favicon/?pageUrl=' + encodeURIComponent(bookmarks[i].url) + '&size=16';
+		icon.alt = '';
+		a.appendChild(icon);
 
 		var titleSpan = document.createElement('span');
 		titleSpan.textContent = bookmarks[i].title || bookmarks[i].url;

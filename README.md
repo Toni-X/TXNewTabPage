@@ -48,13 +48,13 @@ Changelog
 - Auto-focus search bar when typing non-numeric keys
 - Press Escape to clear search
 
-### Version 2.0.3 - March 12, 2026
+### Version 2.0.3 - January 25, 2026
 
 - Fixed empty background-image CSS rule when no image file is set
 - Fixed reset button visibility not updating when switching pages
 - Content visibility options (Apps, Most visited, etc.) are now independent per page
 
-### Version 2.0.0 - March 12, 2026
+### Version 2.0.0 - January 25, 2026
 
 Development continues independently from the original project.
 

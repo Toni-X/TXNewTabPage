@@ -1671,17 +1671,30 @@ document.addEventListener('keypress', function(event) {
 		event.preventDefault();
 	}
 
-	// Page switching with number keys (1-9 for pages 1-9, 0 for page 10)
-	// Only when not typing in an input field
-	if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
-		var key = event.key;
+	// Skip if typing in options inputs or textareas
+	if (event.target.tagName === 'TEXTAREA' ||
+		(event.target.tagName === 'INPUT' && event.target.id !== 'search-input')) {
+		return;
+	}
+
+	var key = event.key;
+	var searchInput = document.getElementById('search-input');
+
+	// Page switching with number keys (only when search bar is NOT focused)
+	if (event.target !== searchInput && (key >= '0' && key <= '9')) {
 		if (key >= '1' && key <= '9') {
 			switchPage(parseInt(key));
-			event.preventDefault();
 		} else if (key === '0') {
 			switchPage(10);
-			event.preventDefault();
 		}
+		event.preventDefault();
+		return;
+	}
+
+	// Auto-focus search bar for non-number keys when not already in it
+	if (event.target !== searchInput && key.length === 1) {
+		searchInput.focus();
+		// The character will be typed into the search input naturally
 	}
 });
 document.addEventListener('mousedown', function(event) {
@@ -1706,3 +1719,139 @@ if (location.search === '?options')
 // refresh recently closed
 if (chrome.sessions)
 	chrome.sessions.onChanged.addListener(refreshClosed);
+
+// --- Search bar ---
+
+var searchInput = document.getElementById('search-input');
+var searchResults = document.getElementById('search-results');
+var searchTimeout = null;
+var selectedIndex = -1;
+
+// search bookmarks and show results
+function searchBookmarks(query) {
+	if (!query || query.length < 2) {
+		hideSearchResults();
+		return;
+	}
+	chrome.bookmarks.search(query, function(results) {
+		// filter to only bookmarks with URLs (no folders)
+		var bookmarks = results.filter(function(b) { return b.url; }).slice(0, 10);
+		showSearchResults(bookmarks, query);
+	});
+}
+
+// render search results dropdown
+function showSearchResults(bookmarks, query) {
+	searchResults.innerHTML = '';
+	selectedIndex = -1;
+
+	if (bookmarks.length === 0) {
+		searchResults.style.display = 'none';
+		return;
+	}
+
+	for (var i = 0; i < bookmarks.length; i++) {
+		var a = document.createElement('a');
+		a.href = bookmarks[i].url;
+		a.title = bookmarks[i].url;
+
+		var titleSpan = document.createElement('span');
+		titleSpan.textContent = bookmarks[i].title || bookmarks[i].url;
+		a.appendChild(titleSpan);
+
+		var urlSpan = document.createElement('span');
+		urlSpan.className = 'search-url';
+		urlSpan.textContent = bookmarks[i].url;
+		a.appendChild(urlSpan);
+
+		a.onmousedown = function(e) {
+			// prevent blur from hiding results before click fires
+			e.preventDefault();
+		};
+		a.onclick = function(e) {
+			e.preventDefault();
+			var newtab = getConfig('newtab');
+			openLink({ url: this.href }, newtab);
+			clearSearch();
+		};
+
+		searchResults.appendChild(a);
+	}
+
+	searchResults.style.display = 'block';
+}
+
+// hide results dropdown
+function hideSearchResults() {
+	searchResults.style.display = 'none';
+	selectedIndex = -1;
+}
+
+// clear search input and results
+function clearSearch() {
+	searchInput.value = '';
+	hideSearchResults();
+}
+
+// input handler with debounce
+searchInput.addEventListener('input', function() {
+	if (searchTimeout) clearTimeout(searchTimeout);
+	searchTimeout = setTimeout(function() {
+		searchBookmarks(searchInput.value.trim());
+	}, 150);
+});
+
+// keyboard navigation in search
+searchInput.addEventListener('keydown', function(event) {
+	var items = searchResults.querySelectorAll('a');
+
+	if (event.key === 'ArrowDown') {
+		event.preventDefault();
+		if (items.length > 0) {
+			selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+			updateSelectedResult(items);
+		}
+	} else if (event.key === 'ArrowUp') {
+		event.preventDefault();
+		if (items.length > 0) {
+			selectedIndex = Math.max(selectedIndex - 1, -1);
+			updateSelectedResult(items);
+		}
+	} else if (event.key === 'Enter') {
+		event.preventDefault();
+		if (selectedIndex >= 0 && items[selectedIndex]) {
+			// open selected bookmark
+			var newtab = getConfig('newtab');
+			openLink({ url: items[selectedIndex].href }, newtab);
+			clearSearch();
+		} else if (searchInput.value.trim()) {
+			// search Google
+			var newtab = getConfig('newtab');
+			openLink({ url: 'https://www.google.com/search?q=' + encodeURIComponent(searchInput.value.trim()) }, newtab);
+			clearSearch();
+		}
+	} else if (event.key === 'Escape') {
+		clearSearch();
+		searchInput.blur();
+	}
+});
+
+// highlight selected result
+function updateSelectedResult(items) {
+	for (var i = 0; i < items.length; i++) {
+		if (i === selectedIndex)
+			items[i].classList.add('selected');
+		else
+			items[i].classList.remove('selected');
+	}
+	// scroll into view
+	if (selectedIndex >= 0 && items[selectedIndex])
+		items[selectedIndex].scrollIntoView({ block: 'nearest' });
+}
+
+// close results when clicking outside
+document.addEventListener('click', function(event) {
+	if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+		hideSearchResults();
+	}
+});

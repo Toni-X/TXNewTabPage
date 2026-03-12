@@ -34,6 +34,15 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 Changelog
 ---------
 
+### Version 2.1.0 - January 25, 2026
+
+- Added search bar next to page switcher
+- Search bookmarks in real-time while typing
+- Press Enter to search Google
+- Navigate results with arrow keys, Enter to open selected bookmark
+- Auto-focus search bar when typing non-numeric keys
+- Press Escape to clear search
+
 ### Version 2.0.3 - January 25, 2026
 
 - Fixed empty background-image CSS rule when no image file is set

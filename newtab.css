@@ -414,3 +414,11 @@ input[type="file"]::-webkit-file-upload-button {
 	color: #57b0ff;
 	font-style: italic;
 }
+#search-results .search-count {
+	padding: 4px 10px;
+	font-size: 11px;
+	color: #888;
+	background-color: #f5f5f5;
+	border-bottom: 1px solid #eee;
+	font-style: italic;
+}

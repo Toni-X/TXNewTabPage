@@ -1735,19 +1735,28 @@ function searchBookmarks(query) {
 	}
 	chrome.bookmarks.search(query, function(results) {
 		// filter to only bookmarks with URLs (no folders)
-		var bookmarks = results.filter(function(b) { return b.url; }).slice(0, 20);
-		showSearchResults(bookmarks, query);
+		var allBookmarks = results.filter(function(b) { return b.url; });
+		var bookmarks = allBookmarks.slice(0, 20);
+		showSearchResults(bookmarks, query, allBookmarks.length);
 	});
 }
 
 // render search results dropdown
-function showSearchResults(bookmarks, query) {
+function showSearchResults(bookmarks, query, totalCount) {
 	searchResults.innerHTML = '';
 	selectedIndex = -1;
 
 	if (bookmarks.length === 0) {
 		searchResults.style.display = 'none';
 		return;
+	}
+
+	// Show count indicator if there are more results
+	if (totalCount > 20) {
+		var countDiv = document.createElement('div');
+		countDiv.className = 'search-count';
+		countDiv.textContent = 'Showing 20 of ' + totalCount + ' results';
+		searchResults.appendChild(countDiv);
 	}
 
 	for (var i = 0; i < bookmarks.length; i++) {

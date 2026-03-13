@@ -38,6 +38,7 @@ Changelog
 
 - Show bookmark favicons in search results
 - Increased max search results from 10 to 20
+- Show total count when more than 20 results found
 
 ### Version 2.1.0 - March 12, 2026
 

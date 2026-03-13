@@ -39,6 +39,10 @@ Changelog
 - Show bookmark favicons in search results
 - Increased max search results from 10 to 20
 - Show total count when more than 20 results found
+- UI refinements: larger page buttons and search input
+- Search results now wider (700px) with higher max-height
+- Multi-line bookmark titles now wrap properly without going under the icon
+- Fixed z-index: options panel now always appears above search results
 
 ### Version 2.1.0 - March 12, 2026
 

@@ -1772,6 +1772,7 @@ function showSearchResults(bookmarks, query, totalCount) {
 		a.appendChild(icon);
 
 		var titleSpan = document.createElement('span');
+		titleSpan.className = 'search-title';
 		titleSpan.textContent = bookmarks[i].title || bookmarks[i].url;
 		a.appendChild(titleSpan);
 

@@ -134,6 +134,8 @@ body {
 	box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
 	min-width: 32em;
 	min-height: 10em;
+	z-index: 300;
+	background-color: #FAFAFA;
 }
 #options_nav {
 	position: absolute;
@@ -314,9 +316,9 @@ input[type="file"]::-webkit-file-upload-button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
-	font-size: 12px;
+	width: 30px;
+	height: 30px;
+	font-size: 14px;
 	font-family: sans-serif;
 	text-decoration: none;
 	color: #888;
@@ -342,14 +344,14 @@ input[type="file"]::-webkit-file-upload-button {
 }
 #search-input {
 	width: 300px;
-	height: 24px;
+	height: 30px;
 	padding: 0 8px;
-	font-size: 13px;
+	font-size: 16px;
 	font-family: sans-serif;
-	border: 1px solid rgba(128, 128, 128, 0.3);
+	border: 1px solid rgba(0, 0, 0, 0.9);
 	border-radius: 4px;
 	background-color: rgba(255, 255, 255, 0.9);
-	color: #333;
+	color: #212121;
 	outline: none;
 	box-sizing: border-box;
 	transition: border-color 0.2s, box-shadow 0.2s;
@@ -359,15 +361,15 @@ input[type="file"]::-webkit-file-upload-button {
 	box-shadow: 0 0 4px rgba(87, 176, 255, 0.4);
 }
 #search-input::placeholder {
-	color: #aaa;
+	color: #8b8b8b;
 }
 #search-results {
 	display: none;
 	position: absolute;
-	top: 26px;
+	top: 32px;
 	left: 0;
-	width: 400px;
-	max-height: 360px;
+	width: 700px;
+	max-height: 460px;
 	overflow-y: auto;
 	background-color: #fff;
 	border: 1px solid #ccc;
@@ -376,19 +378,18 @@ input[type="file"]::-webkit-file-upload-button {
 	z-index: 200;
 }
 #search-results a {
-	display: block;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
 	padding: 6px 10px;
 	text-decoration: none;
 	color: #333;
-	font-size: 13px;
+	font-size: 14px;
 	font-family: sans-serif;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px dashed #00000099;
 	cursor: pointer;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
-#search-results a:last-child {
+#search-results a:last-of-type {
 	border-bottom: none;
 }
 #search-results a:hover, #search-results a.selected {
@@ -398,17 +399,25 @@ input[type="file"]::-webkit-file-upload-button {
 	width: 16px;
 	height: 16px;
 	margin-right: 8px;
-	vertical-align: middle;
+	margin-top: 2px;
 	flex-shrink: 0;
 }
+#search-results .search-title {
+	flex: 1;
+	min-width: 0;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	white-space: normal;
+}
 #search-results .search-url {
-	display: block;
+	width: 100%;
 	font-size: 11px;
 	color: #888;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	margin-left: 24px;
+	padding-left: 24px;
+	box-sizing: border-box;
 }
 #search-results .search-google {
 	color: #57b0ff;

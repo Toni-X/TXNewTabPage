@@ -480,17 +480,18 @@ function enableDragBookmark(node, a, li) {
 		var midpoint = rect.top + rect.height / 2;
 		var insertBefore = event.clientY < midpoint;
 
-		var targetIndex = node.index;
-		var sourceIndex = dragBookmark.node.index;
-
 		var newIndex;
 		if (insertBefore) {
-			newIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+			newIndex = node.index;
 		} else {
-			newIndex = sourceIndex < targetIndex ? targetIndex : targetIndex + 1;
+			newIndex = node.index + 1;
 		}
 
-		if (newIndex !== sourceIndex) {
+		if (newIndex > dragBookmark.node.index) {
+			newIndex--;
+		}
+
+		if (newIndex !== dragBookmark.node.index) {
 			chrome.bookmarks.move(dragBookmark.node.id, { index: newIndex }, function() {
 				renderColumns();
 			});

@@ -492,11 +492,10 @@ function enableDragBookmark(node, a, li) {
 				newIndex = targetNode.index + 1;
 			}
 
-			if (newIndex > sourceNode.index) {
-				newIndex--;
-			}
-
-			if (newIndex !== sourceNode.index) {
+			// Chrome's bookmarks.move auto-adjusts the index when moving
+			// within the same parent (subtracts 1 if source index < new index),
+			// so we pass the raw target slot without pre-adjusting.
+			if (newIndex !== sourceNode.index && newIndex !== sourceNode.index + 1) {
 				chrome.bookmarks.move(sourceNode.id, { index: newIndex }, function() {
 					renderColumns();
 				});

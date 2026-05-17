@@ -43,6 +43,7 @@ Changelog
 - Search results now wider (700px) with higher max-height
 - Multi-line bookmark titles now wrap properly without going under the icon
 - Fixed z-index: options panel now always appears above search results
+- Drag & drop to reorder bookmarks within a folder (syncs with Chrome)
 
 ### Version 2.1.0 - March 12, 2026
 

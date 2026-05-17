@@ -74,6 +74,8 @@ function render(node, target) {
 
 	} else if (node.id == 'apps')
 		enableDragFolder(node, a);
+	else if (url && node.id)
+		enableDragBookmark(node, a, li);
 
 	target.appendChild(li);
 	return li;
@@ -421,6 +423,94 @@ function enableDragFolder(node, a) {
 	};
 }
 
+var dragBookmark = null;
+var bookmarkDropTarget = null;
+
+// enable drag and drop of individual bookmark for reordering
+function enableDragBookmark(node, a, li) {
+	if (getConfig('lock'))
+		return;
+
+	a.draggable = true;
+	a.ondragstart = function(event) {
+		dragBookmark = { node: node, li: li };
+		event.stopPropagation();
+		event.dataTransfer.effectAllowed = 'move';
+		this.classList.add('dragstart');
+	};
+	a.ondragend = function(event) {
+		dragBookmark = null;
+		this.classList.remove('dragstart');
+		clearBookmarkDropTarget();
+	};
+
+	li.ondragover = function(event) {
+		if (!dragBookmark || dragBookmark.node.parentId !== node.parentId)
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+		event.dataTransfer.dropEffect = 'move';
+
+		clearBookmarkDropTarget();
+		bookmarkDropTarget = li;
+		var bordercss = 'solid 2px ' + getConfig('font_color');
+		var rect = li.getBoundingClientRect();
+		var midpoint = rect.top + rect.height / 2;
+		if (event.clientY < midpoint) {
+			li.style.borderTop = bordercss;
+			li.style.marginTop = '-2px';
+		} else {
+			li.style.borderBottom = bordercss;
+			li.style.marginBottom = '-2px';
+		}
+	};
+
+	li.ondragleave = function(event) {
+		if (bookmarkDropTarget === li)
+			clearBookmarkDropTarget();
+	};
+
+	li.ondrop = function(event) {
+		if (!dragBookmark || dragBookmark.node.parentId !== node.parentId)
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+
+		var rect = li.getBoundingClientRect();
+		var midpoint = rect.top + rect.height / 2;
+		var insertBefore = event.clientY < midpoint;
+
+		var targetIndex = node.index;
+		var sourceIndex = dragBookmark.node.index;
+
+		var newIndex;
+		if (insertBefore) {
+			newIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+		} else {
+			newIndex = sourceIndex < targetIndex ? targetIndex : targetIndex + 1;
+		}
+
+		if (newIndex !== sourceIndex) {
+			chrome.bookmarks.move(dragBookmark.node.id, { index: newIndex }, function() {
+				renderColumns();
+			});
+		}
+
+		clearBookmarkDropTarget();
+		dragBookmark = null;
+	};
+}
+
+function clearBookmarkDropTarget() {
+	if (bookmarkDropTarget) {
+		bookmarkDropTarget.style.borderTop = null;
+		bookmarkDropTarget.style.borderBottom = null;
+		bookmarkDropTarget.style.marginTop = null;
+		bookmarkDropTarget.style.marginBottom = null;
+	}
+	bookmarkDropTarget = null;
+}
+
 // init drag and drop handlers
 function enableDragDrop() {
 	var main = document.getElementById('main');
@@ -433,6 +523,7 @@ function enableDragDrop() {
 	}
 
 	main.ondragover = function(event) {
+		if (dragBookmark) return;
 		event.preventDefault();
 		event.dataTransfer.dropEffect = 'move';
 		// highlight drop target

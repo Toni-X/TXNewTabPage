@@ -480,25 +480,31 @@ function enableDragBookmark(node, a, li) {
 		var midpoint = rect.top + rect.height / 2;
 		var insertBefore = event.clientY < midpoint;
 
-		var newIndex;
-		if (insertBefore) {
-			newIndex = node.index;
-		} else {
-			newIndex = node.index + 1;
-		}
+		// Get fresh index values from Chrome
+		chrome.bookmarks.get([dragBookmark.node.id, node.id], function(results) {
+			var sourceNode = results[0];
+			var targetNode = results[1];
 
-		if (newIndex > dragBookmark.node.index) {
-			newIndex--;
-		}
+			var newIndex;
+			if (insertBefore) {
+				newIndex = targetNode.index;
+			} else {
+				newIndex = targetNode.index + 1;
+			}
 
-		if (newIndex !== dragBookmark.node.index) {
-			chrome.bookmarks.move(dragBookmark.node.id, { index: newIndex }, function() {
-				renderColumns();
-			});
-		}
+			if (newIndex > sourceNode.index) {
+				newIndex--;
+			}
 
-		clearBookmarkDropTarget();
-		dragBookmark = null;
+			if (newIndex !== sourceNode.index) {
+				chrome.bookmarks.move(sourceNode.id, { index: newIndex }, function() {
+					renderColumns();
+				});
+			}
+
+			clearBookmarkDropTarget();
+			dragBookmark = null;
+		});
 	};
 }
 

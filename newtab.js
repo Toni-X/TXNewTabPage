@@ -214,6 +214,15 @@ function addFolderHandlers(node, a) {
 					}
 				});
 		}
+
+		// move just this folder to another page (matches dragging the folder
+		// onto a different page number); only nested sub-folders qualify
+		var moveFolderItem = buildMoveToPageItem('Move folder to page', [node.id]);
+		if (moveFolderItem) {
+			if (items.length > 0 && items[items.length - 1] !== null)
+				items.push(null);
+			items.push(moveFolderItem);
+		}
 	}
 
 	a.oncontextmenu = function(event) {
@@ -272,29 +281,13 @@ function addColumnHandlers(index, ul) {
 		}
 	}
 
-	// move column to another page (special columns excluded: they have
-	// dedicated per-page show options instead)
-	if (!getConfig('lock') && !isSpecialColumn(ids)) {
-		var pageItems = [];
-		for (var p = 1; p <= 10; p++) {
-			if (p === currentPage) continue;
-			(function(destPage) {
-				pageItems.push({
-					label: 'Page ' + (destPage === 10 ? 0 : destPage),
-					action: function() {
-						moveDraggedToPage(ids.slice(), destPage);
-					}
-				});
-			})(p);
-		}
-		if (pageItems.length > 0) {
-			if (items.length > 0 && items[items.length - 1] !== null)
-				items.push(null);
-			items.push({
-				label: 'Move column to page',
-				submenu: pageItems
-			});
-		}
+	// move the whole column to another page (managed columns excluded: they
+	// have dedicated per-page show options instead)
+	var moveColumnItem = buildMoveToPageItem('Move column to page', ids);
+	if (moveColumnItem) {
+		if (items.length > 0 && items[items.length - 1] !== null)
+			items.push(null);
+		items.push(moveColumnItem);
 	}
 
 	if (items.length > 0)
@@ -971,14 +964,42 @@ var coords; // coords[id] = {x:x, y:y}
 var special = ['apps', 'top', 'recent', 'closed', 'devices'];
 var currentPage = 1; // current page (1-10)
 
-// true if a column/folder contains a "special" item (Apps, Most visited,
-// Recent bookmarks, Recently closed, Other devices). These have dedicated
-// per-page show options, so we don't allow moving them between pages.
-function isSpecialColumn(ids) {
-	for (var i = 0; i < ids.length; i++)
+// true if a column/folder contains a "managed" item: a special item (Apps,
+// Most visited, Recent bookmarks, Recently closed, Other devices) or a
+// top-level bookmark folder (Bookmarks Bar, Other Bookmarks, ...). All of
+// these already have a dedicated per-page show option, so moving them
+// between pages is redundant and is not allowed. Only genuine nested
+// sub-folders can be moved across pages.
+function isManagedColumn(ids) {
+	for (var i = 0; i < ids.length; i++) {
 		if (special.indexOf(ids[i]) > -1)
 			return true;
+		if (root && root.indexOf(ids[i]) > -1)
+			return true;
+	}
 	return false;
+}
+
+// build a "Move ... to page" submenu item for the given ids, or null when
+// the ids can't be moved (locked, managed column, or no other page exists)
+function buildMoveToPageItem(label, ids) {
+	if (getConfig('lock') || isManagedColumn(ids))
+		return null;
+	var pageItems = [];
+	for (var p = 1; p <= 10; p++) {
+		if (p === currentPage) continue;
+		(function(destPage) {
+			pageItems.push({
+				label: 'Page ' + (destPage === 10 ? 0 : destPage),
+				action: function() {
+					moveDraggedToPage(ids.slice(), destPage);
+				}
+			});
+		})(p);
+	}
+	if (pageItems.length === 0)
+		return null;
+	return { label: label, submenu: pageItems };
 }
 
 // get storage key prefix for current page
@@ -1084,7 +1105,7 @@ function enableDragPageButton(btn) {
 			} else {
 				this.classList.add('drop-after');
 			}
-		} else if (dragIds && pageNum !== currentPage && !isSpecialColumn(dragIds)) {
+		} else if (dragIds && pageNum !== currentPage && !isManagedColumn(dragIds)) {
 			// column/folder to page move
 			event.preventDefault();
 			event.stopPropagation();
@@ -1108,7 +1129,7 @@ function enableDragPageButton(btn) {
 			var leftHalf = event.clientX < rect.left + rect.width / 2;
 			var insertPos = leftHalf ? pageNum : pageNum + 1;
 			reorderPages(draggedPageNum, insertPos);
-		} else if (dragIds && pageNum !== currentPage && !isSpecialColumn(dragIds)) {
+		} else if (dragIds && pageNum !== currentPage && !isManagedColumn(dragIds)) {
 			moveDraggedToPage(dragIds.slice(), pageNum);
 			dragIds = null;
 		}
@@ -1202,21 +1223,16 @@ function reorderPages(sourcePage, insertPos) {
 function moveDraggedToPage(ids, destPage) {
 	if (destPage === currentPage || destPage < 1 || destPage > 10) return;
 
-	var sourcePrefix = 'page.' + currentPage + '.';
-	var destPrefix = 'page.' + destPage + '.';
-
-	// For any id that lives in `root` (special folders or top-level bookmark
-	// folders), verifyColumns auto-re-adds it to a page where it's missing
-	// unless show_<id> is 0. To make the move stick across page reloads,
-	// hide it on the source page and ensure it's visible on the destination.
+	// Only genuine nested sub-folders move between pages. Root-managed items
+	// (special columns + top-level bookmark folders) are filtered out here as
+	// a safeguard: they have per-page show options and would otherwise be
+	// auto-re-added by verifyColumns on the source page anyway.
 	if (root) {
-		for (var i = 0; i < ids.length; i++) {
-			if (root.indexOf(ids[i]) > -1) {
-				localStorage.setItem(sourcePrefix + 'options.show_' + ids[i], '0');
-				localStorage.setItem(destPrefix + 'options.show_' + ids[i], '1');
-			}
-		}
+		ids = ids.filter(function(id) { return root.indexOf(id) < 0; });
 	}
+	if (ids.length === 0) return;
+
+	var destPrefix = 'page.' + destPage + '.';
 
 	// remove ids from current page's in-memory columns
 	for (var x = 0; x < columns.length; x++) {

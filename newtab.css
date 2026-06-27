@@ -127,6 +127,7 @@ body {
 	left: 100%;
 	top: -1px;
 	margin-left: -1px;
+	font-size: 1em;
 }
 .menu li.has-submenu:hover > .submenu,
 .menu li.has-submenu:focus-within > .submenu {

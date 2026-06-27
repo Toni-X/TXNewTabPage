@@ -37,9 +37,10 @@ Changelog
 ### Version 2.3.0 - June 27, 2026
 
 - Drag & drop the page numbers to reorder pages (all page settings move with them)
-- Move a column to another page by dragging it onto a different page number
-- New "Move column to page" submenu in the column context menu
-- Special columns (Apps, Most visited, Recent bookmarks, Recently closed, Other devices) are excluded from moving between pages — use their per-page show options instead
+- Move a whole column to another page by dragging it onto a different page number
+- Move a single folder to another page by dragging just that folder onto a page number
+- New "Move column to page" / "Move folder to page" submenus in the context menus
+- Items that already have a per-page show option (Apps, Most visited, Recent bookmarks, Recently closed, Other devices, and top-level folders like Bookmarks Bar) are excluded from moving between pages — use their show options instead
 
 ### Version 2.2.0 - May 17, 2026
 

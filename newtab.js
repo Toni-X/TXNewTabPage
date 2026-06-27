@@ -272,6 +272,30 @@ function addColumnHandlers(index, ul) {
 		}
 	}
 
+	// move column to another page
+	if (!getConfig('lock')) {
+		var pageItems = [];
+		for (var p = 1; p <= 10; p++) {
+			if (p === currentPage) continue;
+			(function(destPage) {
+				pageItems.push({
+					label: 'Page ' + (destPage === 10 ? 0 : destPage),
+					action: function() {
+						moveDraggedToPage(ids.slice(), destPage);
+					}
+				});
+			})(p);
+		}
+		if (pageItems.length > 0) {
+			if (items.length > 0 && items[items.length - 1] !== null)
+				items.push(null);
+			items.push({
+				label: 'Move column to page',
+				submenu: pageItems
+			});
+		}
+	}
+
 	if (items.length > 0)
 		ul.oncontextmenu = function(event) {
 			if (event.target.tagName == 'A' || event.target.parentNode.tagName == 'A')
@@ -332,9 +356,34 @@ function renderMenu(items, x, y) {
 			var a = document.createElement('a');
 			a.innerText = items[i].label;
 			a.tabIndex = 0;
-			a.onclick = onMenuClick(items[i]);
 
-			li.appendChild(a);
+			if (items[i].submenu) {
+				li.classList.add('has-submenu');
+				a.onclick = function() { return false; };
+				li.appendChild(a);
+				var subUl = document.createElement('ul');
+				subUl.className = 'menu submenu';
+				for (var j = 0; j < items[i].submenu.length; j++) {
+					var subLi = document.createElement('li');
+					var subItem = items[i].submenu[j];
+					if (subItem) {
+						var subA = document.createElement('a');
+						subA.innerText = subItem.label;
+						subA.tabIndex = 0;
+						subA.onclick = onMenuClick(subItem);
+						subLi.appendChild(subA);
+					} else if (j > 0 && j < items[i].submenu.length - 1) {
+						subLi.appendChild(document.createElement('hr'));
+					} else {
+						continue;
+					}
+					subUl.appendChild(subLi);
+				}
+				li.appendChild(subUl);
+			} else {
+				a.onclick = onMenuClick(items[i]);
+				li.appendChild(a);
+			}
 		} else if (i > 0 && i < items.length - 1)
 			li.appendChild(document.createElement('hr'));
 		else
@@ -530,6 +579,7 @@ function enableDragDrop() {
 
 	main.ondragover = function(event) {
 		if (dragBookmark) return;
+		if (!dragIds) return; // ignore page-button drags
 		event.preventDefault();
 		event.dataTransfer.dropEffect = 'move';
 		// highlight drop target
@@ -925,15 +975,8 @@ function getPagePrefix() {
 	return 'page.' + currentPage + '.';
 }
 
-// switch to a different page
-function switchPage(pageNum) {
-	if (pageNum < 1 || pageNum > 10 || pageNum === currentPage) return;
-
-	// Save current page number
-	currentPage = pageNum;
-	localStorage.setItem('currentPage', currentPage);
-
-	// Update active button
+// update which page button is highlighted as active
+function updateActivePageButton() {
 	var buttons = document.querySelectorAll('.page-btn');
 	buttons.forEach(function(btn) {
 		var btnPage = parseInt(btn.getAttribute('data-page'));
@@ -943,6 +986,17 @@ function switchPage(pageNum) {
 			btn.classList.remove('active');
 		}
 	});
+}
+
+// switch to a different page
+function switchPage(pageNum) {
+	if (pageNum < 1 || pageNum > 10 || pageNum === currentPage) return;
+
+	// Save current page number
+	currentPage = pageNum;
+	localStorage.setItem('currentPage', currentPage);
+
+	updateActivePageButton();
 
 	// Update options UI for per-page settings (show_* checkboxes)
 	if (settingsInitialized) {
@@ -961,6 +1015,8 @@ function switchPage(pageNum) {
 	loadColumns();
 }
 
+var draggedPageNum = null;
+
 // initialize page switcher buttons
 function initPageSwitcher() {
 	var buttons = document.querySelectorAll('.page-btn');
@@ -970,22 +1026,242 @@ function initPageSwitcher() {
 			switchPage(pageNum);
 			return false;
 		};
+		enableDragPageButton(btn);
 	});
 
 	// Load saved current page
 	var savedPage = localStorage.getItem('currentPage');
 	if (savedPage) {
 		currentPage = parseInt(savedPage);
-		// Update active button
-		buttons.forEach(function(btn) {
-			var btnPage = parseInt(btn.getAttribute('data-page'));
-			if (btnPage === currentPage) {
-				btn.classList.add('active');
-			} else {
-				btn.classList.remove('active');
-			}
-		});
+		updateActivePageButton();
 	}
+}
+
+// enable drag and drop on a page button (page reorder + column-to-page drop)
+function enableDragPageButton(btn) {
+	btn.draggable = true;
+
+	btn.ondragstart = function(event) {
+		if (getConfig('lock')) {
+			event.preventDefault();
+			return;
+		}
+		draggedPageNum = parseInt(this.getAttribute('data-page'));
+		event.dataTransfer.effectAllowed = 'move';
+		event.dataTransfer.setData('text/plain', String(draggedPageNum));
+		this.classList.add('dragstart');
+	};
+
+	btn.ondragend = function(event) {
+		draggedPageNum = null;
+		this.classList.remove('dragstart');
+		clearPageDropIndicators();
+	};
+
+	btn.ondragover = function(event) {
+		if (getConfig('lock')) return;
+		var pageNum = parseInt(this.getAttribute('data-page'));
+		if (draggedPageNum != null) {
+			// page-to-page reorder
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = 'move';
+			clearPageDropIndicators();
+			var rect = this.getBoundingClientRect();
+			if (event.clientX < rect.left + rect.width / 2) {
+				this.classList.add('drop-before');
+			} else {
+				this.classList.add('drop-after');
+			}
+		} else if (dragIds && pageNum !== currentPage) {
+			// column/folder to page move
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = 'move';
+			clearPageDropIndicators();
+			this.classList.add('drop-column');
+		}
+	};
+
+	btn.ondragleave = function(event) {
+		this.classList.remove('drop-before', 'drop-after', 'drop-column');
+	};
+
+	btn.ondrop = function(event) {
+		if (getConfig('lock')) return;
+		event.preventDefault();
+		event.stopPropagation();
+		var pageNum = parseInt(this.getAttribute('data-page'));
+		if (draggedPageNum != null) {
+			var rect = this.getBoundingClientRect();
+			var leftHalf = event.clientX < rect.left + rect.width / 2;
+			var insertPos = leftHalf ? pageNum : pageNum + 1;
+			reorderPages(draggedPageNum, insertPos);
+		} else if (dragIds && pageNum !== currentPage) {
+			moveDraggedToPage(dragIds.slice(), pageNum);
+			dragIds = null;
+		}
+		clearPageDropIndicators();
+		return false;
+	};
+}
+
+function clearPageDropIndicators() {
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		btn.classList.remove('drop-before', 'drop-after', 'drop-column');
+	});
+}
+
+// read all localStorage entries for a given page into a flat object
+function readPageState(pageNum) {
+	var prefix = 'page.' + pageNum + '.';
+	var state = {};
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && key.indexOf(prefix) === 0) {
+			state[key.substring(prefix.length)] = localStorage.getItem(key);
+		}
+	}
+	return state;
+}
+
+// remove all localStorage entries for any page.<n>.* key
+function clearAllPageStates() {
+	var keysToRemove = [];
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && /^page\.\d+\./.test(key)) {
+			keysToRemove.push(key);
+		}
+	}
+	for (var i = 0; i < keysToRemove.length; i++) {
+		localStorage.removeItem(keysToRemove[i]);
+	}
+}
+
+// write a state object back under page.<pageNum>.*
+function writePageState(pageNum, state) {
+	var prefix = 'page.' + pageNum + '.';
+	for (var key in state) {
+		localStorage.setItem(prefix + key, state[key]);
+	}
+}
+
+// reorder pages: move sourcePage so it ends up at the requested insertion point
+// insertPos is 1..11 (1 = before page 1, 11 = after page 10)
+function reorderPages(sourcePage, insertPos) {
+	if (sourcePage < 1 || sourcePage > 10) return;
+
+	var entries = [];
+	for (var p = 1; p <= 10; p++) {
+		entries.push({ original: p, data: readPageState(p) });
+	}
+
+	var insertIndex = insertPos - 1;
+	if (sourcePage < insertPos) insertIndex -= 1;
+	if (insertIndex === sourcePage - 1) return; // no-op
+
+	var moved = entries.splice(sourcePage - 1, 1)[0];
+	entries.splice(insertIndex, 0, moved);
+
+	// follow the page the user was viewing to its new index
+	var newCurrentPage = currentPage;
+	for (var i = 0; i < entries.length; i++) {
+		if (entries[i].original === currentPage) {
+			newCurrentPage = i + 1;
+			break;
+		}
+	}
+
+	clearAllPageStates();
+	for (var i = 0; i < entries.length; i++) {
+		writePageState(i + 1, entries[i].data);
+	}
+
+	currentPage = newCurrentPage;
+	localStorage.setItem('currentPage', currentPage);
+	updateActivePageButton();
+	root = null;
+	loadColumns();
+}
+
+// move a column (or folder) currently on the active page to another page,
+// placing it as the last column, then switch to that page
+function moveDraggedToPage(ids, destPage) {
+	if (destPage === currentPage || destPage < 1 || destPage > 10) return;
+
+	var sourcePrefix = 'page.' + currentPage + '.';
+	var destPrefix = 'page.' + destPage + '.';
+
+	// For any id that lives in `root` (special folders or top-level bookmark
+	// folders), verifyColumns auto-re-adds it to a page where it's missing
+	// unless show_<id> is 0. To make the move stick across page reloads,
+	// hide it on the source page and ensure it's visible on the destination.
+	if (root) {
+		for (var i = 0; i < ids.length; i++) {
+			if (root.indexOf(ids[i]) > -1) {
+				localStorage.setItem(sourcePrefix + 'options.show_' + ids[i], '0');
+				localStorage.setItem(destPrefix + 'options.show_' + ids[i], '1');
+			}
+		}
+	}
+
+	// remove ids from current page's in-memory columns
+	for (var x = 0; x < columns.length; x++) {
+		for (var y = 0; y < columns[x].length; y++) {
+			if (ids.indexOf(columns[x][y]) > -1) {
+				columns[x].splice(y, 1);
+				y--;
+			}
+		}
+	}
+	for (var x = columns.length - 1; x >= 0; x--) {
+		if (columns[x].length === 0) columns.splice(x, 1);
+	}
+	saveColumns();
+
+	// load destination page's columns from storage
+	var destColumns = [];
+	for (var x = 0; ; x++) {
+		var row = [];
+		for (var y = 0; ; y++) {
+			var id = localStorage.getItem(destPrefix + 'column.' + x + '.' + y);
+			if (id) row.push(id); else break;
+		}
+		if (row.length > 0) destColumns.push(row); else break;
+	}
+
+	// remove ids from destination if already present elsewhere on that page
+	for (var x = destColumns.length - 1; x >= 0; x--) {
+		for (var y = destColumns[x].length - 1; y >= 0; y--) {
+			if (ids.indexOf(destColumns[x][y]) > -1) {
+				destColumns[x].splice(y, 1);
+			}
+		}
+		if (destColumns[x].length === 0) destColumns.splice(x, 1);
+	}
+
+	destColumns.push(ids.slice());
+
+	// clear and rewrite destination column.* keys
+	var keysToRemove = [];
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && key.indexOf(destPrefix + 'column.') === 0) {
+			keysToRemove.push(key);
+		}
+	}
+	for (var i = 0; i < keysToRemove.length; i++) {
+		localStorage.removeItem(keysToRemove[i]);
+	}
+	for (var x = 0; x < destColumns.length; x++) {
+		for (var y = 0; y < destColumns[x].length; y++) {
+			localStorage.setItem(destPrefix + 'column.' + x + '.' + y, destColumns[x][y]);
+		}
+	}
+
+	switchPage(destPage);
 }
 
 // ensure root folders are included

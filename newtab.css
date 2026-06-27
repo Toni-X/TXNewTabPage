@@ -113,6 +113,25 @@ body {
 	border: solid #CCC;
 	border-width: 1px 0 0 0;
 }
+.menu li.has-submenu {
+	position: relative;
+}
+.menu li.has-submenu > a::after {
+	content: '\25B8';
+	float: right;
+	padding-left: 1.5em;
+	opacity: 0.6;
+}
+.menu .submenu {
+	display: none;
+	left: 100%;
+	top: -1px;
+	margin-left: -1px;
+}
+.menu li.has-submenu:hover > .submenu,
+.menu li.has-submenu:focus-within > .submenu {
+	display: block;
+}
 .dragstart {
 	opacity: 0.5;
 }
@@ -336,6 +355,18 @@ input[type="file"]::-webkit-file-upload-button {
 	color: #fff;
 	background-color: #57b0ff;
 	font-weight: bold;
+}
+.page-btn.dragstart {
+	opacity: 0.4;
+}
+.page-btn.drop-before {
+	box-shadow: inset 2px 0 0 0 #57b0ff;
+}
+.page-btn.drop-after {
+	box-shadow: inset -2px 0 0 0 #57b0ff;
+}
+.page-btn.drop-column {
+	box-shadow: 0 0 0 2px #57b0ff;
 }
 /* Search bar */
 #search-container {

@@ -34,6 +34,13 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 Changelog
 ---------
 
+### Version 2.3.0 - June 27, 2026
+
+- Drag & drop the page numbers to reorder pages (all page settings move with them)
+- Move a column to another page by dragging it onto a different page number
+- New "Move column to page" submenu in the column context menu
+- Special columns (Apps, Most visited, Recent bookmarks, Recently closed, Other devices) are excluded from moving between pages — use their per-page show options instead
+
 ### Version 2.2.0 - May 17, 2026
 
 - Drag & drop to reorder bookmarks within a folder (syncs with Chrome)

@@ -272,8 +272,9 @@ function addColumnHandlers(index, ul) {
 		}
 	}
 
-	// move column to another page
-	if (!getConfig('lock')) {
+	// move column to another page (special columns excluded: they have
+	// dedicated per-page show options instead)
+	if (!getConfig('lock') && !isSpecialColumn(ids)) {
 		var pageItems = [];
 		for (var p = 1; p <= 10; p++) {
 			if (p === currentPage) continue;
@@ -970,6 +971,16 @@ var coords; // coords[id] = {x:x, y:y}
 var special = ['apps', 'top', 'recent', 'closed', 'devices'];
 var currentPage = 1; // current page (1-10)
 
+// true if a column/folder contains a "special" item (Apps, Most visited,
+// Recent bookmarks, Recently closed, Other devices). These have dedicated
+// per-page show options, so we don't allow moving them between pages.
+function isSpecialColumn(ids) {
+	for (var i = 0; i < ids.length; i++)
+		if (special.indexOf(ids[i]) > -1)
+			return true;
+	return false;
+}
+
 // get storage key prefix for current page
 function getPagePrefix() {
 	return 'page.' + currentPage + '.';
@@ -1073,7 +1084,7 @@ function enableDragPageButton(btn) {
 			} else {
 				this.classList.add('drop-after');
 			}
-		} else if (dragIds && pageNum !== currentPage) {
+		} else if (dragIds && pageNum !== currentPage && !isSpecialColumn(dragIds)) {
 			// column/folder to page move
 			event.preventDefault();
 			event.stopPropagation();
@@ -1097,7 +1108,7 @@ function enableDragPageButton(btn) {
 			var leftHalf = event.clientX < rect.left + rect.width / 2;
 			var insertPos = leftHalf ? pageNum : pageNum + 1;
 			reorderPages(draggedPageNum, insertPos);
-		} else if (dragIds && pageNum !== currentPage) {
+		} else if (dragIds && pageNum !== currentPage && !isSpecialColumn(dragIds)) {
 			moveDraggedToPage(dragIds.slice(), pageNum);
 			dragIds = null;
 		}

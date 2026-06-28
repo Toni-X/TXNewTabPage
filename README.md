@@ -5,8 +5,6 @@ Redesigned new tab page featuring your bookmarks, apps, most visited, and recent
 
 This is a fork of the original [Humble New Tab Page](https://github.com/ibillingsley/HumbleNewTabPage) by ibillingsley.
 
-![](media/shot.1.png)
-
 ### Features
 
 - Simple, clean design
@@ -15,15 +13,6 @@ This is a fork of the original [Humble New Tab Page](https://github.com/ibilling
 - **10 independent pages** with page switcher (new in v2.0.0)
 
 This extension replaces the default new tab page. Drag and drop folders to create new columns or reorder them. The font, colors, spacing, and more can be customized from the options menu.
-
-
-Screenshots
------------
-![](media/shot.2.png)
-![](media/shot.3.png)
-![](media/shot.4.png)
-![](media/shot.5.png)
-
 
 License
 -------
@@ -34,7 +23,7 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 Changelog
 ---------
 
-### Version 2.3.0 - June 27, 2026
+### Version 2.3.0b - June 27, 2026
 
 - Drag & drop the page numbers to reorder pages (all page settings move with them)
 - Move a whole column to another page by dragging it onto a different page number

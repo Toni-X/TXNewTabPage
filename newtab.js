@@ -2,7 +2,10 @@
 
 // render a single bookmark node
 function render(node, target) {
-	if (node.description == 'separator') return;
+	if (node.type == 'separator' || node.url && node.url.startsWith('place:')) {
+		console.warn('skipping: ', node);
+		return;
+	}
 
 	var li = document.createElement('li');
 	var a = document.createElement('a');
@@ -38,9 +41,9 @@ function render(node, target) {
 				return false;
 			};
 		}
-		// fix opening chrome:// and file:/// urls
+		// fix opening about: and file:/// urls
 		var urlStart = url.substring(0, 6);
-		if (urlStart === 'chrome' || urlStart === 'file:/'){
+		if (urlStart === 'about:' || urlStart === 'file:/'){
 			a.onclick = function(e) {
 				openLink(node, newtab || (e.ctrlKey ? 2 : 0));
 				return false;
@@ -72,9 +75,7 @@ function render(node, target) {
 		addFolderHandlers(node, a);
 		enableDragFolder(node, a);
 
-	} else if (node.id == 'apps')
-		enableDragFolder(node, a);
-	else if (url && node.id)
+	} else if (url && node.id)
 		enableDragBookmark(node, a, li);
 
 	target.appendChild(li);
@@ -308,27 +309,6 @@ function getMenuItems(node) {
 				openLinks(node);
 			}
 		});
-	if (node.id == 'closed')
-		items.push({
-			label: 'Clear browsing data',
-			action: function() {
-				openLink({ url: 'chrome://settings/clearBrowserData' }, 1);
-			}
-		});
-	if (node.id == 'devices')
-		items.push({
-			label: 'History',
-			action: function() {
-				openLink({ url: 'chrome://history' }, 1);
-			}
-		});
-	if (Number(node.id))
-		items.push({
-			label: 'Edit bookmarks',
-			action: function() {
-				openLink({ url: 'chrome://bookmarks/?id=' + node.id }, 1);
-			}
-		});
 	return items;
 }
 
@@ -435,6 +415,7 @@ function enableDragColumn(id, column) {
 
 	column.ondragstart = function(event) {
 		dragIds = columns[id];
+		event.dataTransfer.setData('text/plain', JSON.stringify(dragIds));
 		event.dataTransfer.effectAllowed = 'move';
 		this.classList.add('dragstart');
 	};
@@ -456,6 +437,7 @@ function enableDragFolder(node, a) {
 	a.ondragstart = function(event) {
 		dragIds = [node.id];
 		event.stopPropagation();
+		event.dataTransfer.setData('text/plain', JSON.stringify(dragIds));
 		event.dataTransfer.effectAllowed = 'move copy';
 		this.classList.add('dragstart');
 	};
@@ -478,6 +460,7 @@ function enableDragBookmark(node, a, li) {
 	a.ondragstart = function(event) {
 		dragBookmark = { node: node, li: li };
 		event.stopPropagation();
+		event.dataTransfer.setData('text/plain', node.url || node.id);
 		event.dataTransfer.effectAllowed = 'move';
 		this.classList.add('dragstart');
 	};
@@ -535,10 +518,12 @@ function enableDragBookmark(node, a, li) {
 				newIndex = targetNode.index + 1;
 			}
 
-			// Chrome's bookmarks.move auto-adjusts the index when moving
-			// within the same parent (subtracts 1 if source index < new index),
-			// so we pass the raw target slot without pre-adjusting.
 			if (newIndex !== sourceNode.index && newIndex !== sourceNode.index + 1) {
+				// Firefox (unlike Chrome) treats the index as the final
+				// position after the bookmark is removed from its old slot,
+				// so moving downward needs one less.
+				if (newIndex > sourceNode.index)
+					newIndex--;
 				chrome.bookmarks.move(sourceNode.id, { index: newIndex }, function() {
 					renderColumns();
 				});
@@ -608,6 +593,8 @@ function enableDragDrop() {
 	};
 
 	main.ondrop = function(event) {
+		// Firefox would otherwise open the dragged text/plain data as a URL
+		event.preventDefault();
 		event.stopPropagation();
 
 		var target = getDropTarget(event);
@@ -725,6 +712,9 @@ function getChildrenFunction(node) {
 			return function(callback) {
 				if (chrome.topSites)
 					chrome.topSites.get(function(result) {
+						result = result.filter(function(node) {
+							return node.url && !node.url.startsWith(location.origin);
+						});
 						callback(result.slice(0, getConfig('number_top')));
 					});
 				else
@@ -739,12 +729,6 @@ function getChildrenFunction(node) {
 		case 'closed':
 			return function(callback) {
 				getClosed(function(result) {
-					callback(result);
-				});
-			};
-		case 'devices':
-			return function(callback) {
-				getDevices(function(result) {
 					callback(result);
 				});
 			};
@@ -774,17 +758,11 @@ function getSubTree(id, callback) {
 		case 'top':
 			callback([{ title: 'Most visited', id: 'top', children: true}]);
 			break;
-		case 'apps':
-			callback([{ title: 'Apps', id: 'apps', url: 'chrome://apps' }]);
-			break;
 		case 'recent':
 			callback([{ title: 'Recent bookmarks', id: 'recent', children: true }]);
 			break;
 		case 'closed':
 			callback([{ title: 'Recently closed', id: 'closed', children: true }]);
-			break;
-		case 'devices':
-			callback([{ title: 'Other devices', id: 'devices', children: true }]);
 			break;
 		default:
 			chrome.bookmarks.getSubTree(id, function(result) {
@@ -812,13 +790,48 @@ function setClass(target, node, isopen) {
 
 	switch(node.id) {
 		case 'top':
-		case 'apps':
 		case 'recent':
 		case 'closed':
-		case 'devices':
 		case 'empty':
 			target.classList.add(node.id);
 	}
+}
+
+var iconProvider = 1;
+// website icon urls for a page url, using the selected icon provider
+// (Firefox has no equivalent of Chrome's /_favicon/ API)
+function getIconUrls(pageUrl) {
+	var url = null,
+		url2x = null;
+	if (iconProvider == 0)
+		return { url: url, url2x: url2x };
+	try {
+		var u = new URL(pageUrl);
+		if (u.protocol === "about:") {
+			url = 'icons/apps.png';
+			url2x = 'icons/apps@2x.png';
+		} else if (u.protocol === "file:") {
+			url = 'icons/page.png';
+			url2x = 'icons/page@2x.png';
+		} else if (iconProvider == 1) {
+			url = u.origin + '/favicon.ico';
+		} else if (iconProvider == 2) {
+			url = 'https://t2.gstatic.com/faviconV2?url=' + u.origin + '&size=16&type=FAVICON&client=SOCIAL&fallback_opts=TYPE,SIZE,URL';
+			url2x = 'https://t2.gstatic.com/faviconV2?url=' + u.origin + '&size=32&type=FAVICON&client=SOCIAL&fallback_opts=TYPE,SIZE,URL';
+		} else if (iconProvider == 3) {
+			url = 'https://icon.horse/icon/' + u.hostname.replace(/^www\./, '');
+		} else if (iconProvider == 4) {
+			url = 'https://external-content.duckduckgo.com/ip3/' + u.hostname + '.ico';
+		} else if (iconProvider == 5) {
+			url = 'https://api.ecosia.org/v2/favicons/fetch?domain=' + u.origin;
+		} else if (iconProvider == 6) {
+			url = 'https://favicon.yandex.net/favicon/v2/' + u.hostname + '?size=16';
+			url2x = 'https://favicon.yandex.net/favicon/v2/' + u.hostname + '?size=32';
+		}
+	} catch (e) {
+		console.error(e);
+	}
+	return { url: url, url2x: url2x };
 }
 
 // gets best icon for a node
@@ -838,10 +851,10 @@ function getIcon(node) {
 	} else if (node.icon) {
 		url = node.icon;
 	} else if (node.url) {
-		url = `/_favicon/?pageUrl=${encodeURIComponent(node.url)}&size=16`;
-		url2x = `/_favicon/?pageUrl=${encodeURIComponent(node.url)}&size=32`;
+		var urls = getIconUrls(node.url);
+		url = urls.url;
+		url2x = urls.url2x;
 	}
-
 	var icon = document.createElement(url ? 'img' : 'div');
 	icon.className = 'icon';
 	icon.src = url;
@@ -951,7 +964,7 @@ function openLink(node, newtab) {
 	if (url) {
 		chrome.tabs.getCurrent(function(tab) {
 			if (newtab)
-				chrome.tabs.create({url: url, active: (newtab == 1), openerTabId: tab.id});
+				chrome.tabs.create({url: url, active: (newtab == 1)});
 			else
 				chrome.tabs.update(tab.id, {url: url});
 		});
@@ -961,11 +974,11 @@ function openLink(node, newtab) {
 var columns; // columns[x][y] = id
 var root; // root[] = id
 var coords; // coords[id] = {x:x, y:y}
-var special = ['apps', 'top', 'recent', 'closed', 'devices'];
+var special = ['top', 'recent', 'closed'];
 var currentPage = 1; // current page (1-10)
 
-// true if a column/folder contains a "managed" item: a special item (Apps,
-// Most visited, Recent bookmarks, Recently closed, Other devices) or a
+// true if a column/folder contains a "managed" item: a special item (Most
+// visited, Recent bookmarks, Recently closed) or a
 // top-level bookmark folder (Bookmarks Bar, Other Bookmarks, ...). All of
 // these already have a dedicated per-page show option, so moving them
 // between pages is redundant and is not allowed. Only genuine nested
@@ -1451,52 +1464,26 @@ function removeRow(xpos, ypos) {
 // get recently closed tabs
 function getClosed(callback) {
 	var maxResults = getConfig('number_closed');
-	chrome.sessions.getRecentlyClosed({ maxResults: maxResults }, function(sessions) {
+	chrome.sessions.getRecentlyClosed({}, function(sessions) {
 		var nodes = [];
-		for (var i = 0; i < sessions.length && i < maxResults; i++) {
+		for (var i = 0; i < sessions.length && nodes.length < maxResults; i++) {
 			(function(session) {
 				if (session.window && session.window.tabs.length == 1)
 					session.tab = session.window.tabs[0];
 
-				nodes.push({
-					title: session.tab ? session.tab.title : session.window.tabs.length + ' Tabs',
-					url: session.tab ? session.tab.url : null,
-					className: session.window ? 'window' : null,
-					action: function() {
-						chrome.sessions.restore(session.window ? session.window.sessionId : session.tab.sessionId, function(session) {
-							refreshClosed();
-						});
-						return false;
-					}
-				});
+				if (!session.tab || session.tab.url && !session.tab.url.startsWith(location.origin))
+					nodes.push({
+						title: session.tab ? session.tab.title : session.window.tabs.length + ' Tabs',
+						url: session.tab ? session.tab.url : null,
+						className: session.window ? 'window' : null,
+						action: function() {
+							chrome.sessions.restore(session.window ? session.window.sessionId : session.tab.sessionId, function(session) {
+								refreshClosed();
+							});
+							return false;
+						}
+					});
 			})(sessions[i]);
-		}
-		callback(nodes);
-	});
-}
-
-function getDevices(callback) {
-	chrome.sessions.getDevices({ maxResults: getConfig('number_closed') }, function(devices) {
-		var nodes = [];
-		for (var i = 0; i < devices.length; i++) {
-			(function(device) {
-				var children = [];
-				for (var j = 0; j < device.sessions.length; j++) {
-					var session = device.sessions[j];
-					var tabs = session.window ? session.window.tabs : [session.tab];
-					for (var k = 0; k < tabs.length; k++) {
-						children.push({
-							title: tabs[k].title,
-							url: tabs[k].url
-						});
-					}
-				}
-				nodes.push({
-					id: 'device.' + device.deviceName,
-					title: device.deviceName,
-					children: children
-				});
-			})(devices[i]);
 		}
 		callback(nodes);
 	});
@@ -1552,19 +1539,18 @@ var config = {
 	hide_options: 0,
 	lock: 0,
 	show_top: 1,
-	show_apps: 1,
 	show_recent: 1,
 	show_closed: 1,
-	show_devices: 1,
 	show_root: 0,
 	newtab: 0,
 	remember_open: 1,
 	auto_close: 0,
 	auto_scale: 1,
 	css: '',
-	number_top: 10,
+	number_top: 12,
 	number_closed: 10,
-	number_recent: 10
+	number_recent: 10,
+	icon_provider: 1
 };
 
 // color theme values
@@ -1678,7 +1664,7 @@ function setConfig(key, value) {
 		value = (theme.hasOwnProperty(key) ? theme[key] : config[key]);
 	}
 	// special case settings
-	if (key == 'lock' || key == 'newtab' || key == 'show_root' || key.substring(0,6) == 'number')
+	if (key == 'lock' || key == 'newtab' || key == 'show_root' || key == 'icon_provider' || key.substring(0,6) == 'number')
 		loadColumns();
 	else if (key == 'theme') {
 		theme = themes[value];
@@ -1818,6 +1804,8 @@ function onChange(key, value) {
 	else if (key == 'auto_scale') {
 		onChange('width');
 		onChange('v_margin');
+	} else if (key == 'icon_provider') {
+		iconProvider = value;
 	}
 
 	// update options panel
@@ -2134,8 +2122,11 @@ function searchBookmarks(query) {
 		return;
 	}
 	chrome.bookmarks.search(query, function(results) {
-		// filter to only bookmarks with URLs (no folders)
-		var allBookmarks = results.filter(function(b) { return b.url; });
+		// filter to only bookmarks with URLs (no folders, separators or
+		// Firefox "place:" smart bookmarks)
+		var allBookmarks = results.filter(function(b) {
+			return b.url && b.type != 'separator' && !b.url.startsWith('place:');
+		});
 		var bookmarks = allBookmarks.slice(0, 20);
 		showSearchResults(bookmarks, query, allBookmarks.length);
 	});
@@ -2165,9 +2156,20 @@ function showSearchResults(bookmarks, query, totalCount) {
 		a.title = bookmarks[i].url;
 
 		// Add favicon
+		var iconUrls = getIconUrls(bookmarks[i].url);
 		var icon = document.createElement('img');
 		icon.className = 'search-icon';
-		icon.src = '/_favicon/?pageUrl=' + encodeURIComponent(bookmarks[i].url) + '&size=16';
+		if (iconUrls.url) {
+			icon.src = iconUrls.url;
+			if (iconUrls.url2x) icon.srcset = iconUrls.url2x + ' 2x';
+			icon.onerror = function() {
+				this.onerror = null;
+				this.removeAttribute('srcset');
+				this.src = 'icons/page.png';
+			};
+		} else {
+			icon.style.visibility = 'hidden';
+		}
 		icon.alt = '';
 		a.appendChild(icon);
 

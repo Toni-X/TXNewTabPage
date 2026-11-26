@@ -320,6 +320,9 @@ input[type="file"]::-webkit-file-upload-button {
 .error .icon {
 	background-image: -webkit-image-set(url("icons/error.png") 1x, url("icons/error@2x.png") 2x);
 }
+.icon:-moz-broken {
+	background-image: -webkit-image-set(url("icons/page.png") 1x, url("icons/page@2x.png") 2x);
+}
 #options_button {
 	background-image: -webkit-image-set(url("icons/options.png") 1x, url("icons/options@2x.png") 2x);
 }

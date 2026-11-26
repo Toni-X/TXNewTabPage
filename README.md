@@ -12,7 +12,46 @@ This is a fork of the original [Humble New Tab Page](https://github.com/ibilling
 - Fast loading and lightweight
 - **10 independent pages** with page switcher (new in v2.0.0)
 
-This extension replaces the default new tab page. Drag and drop folders to create new columns or reorder them. The font, colors, spacing, and more can be customized from the options menu.
+This extension replaces the default new tab page (and, on Firefox, the home page). Drag and drop folders to create new columns or reorder them. The font, colors, spacing, and more can be customized from the options menu.
+
+Firefox version
+---------------
+
+This `firefox` branch is the Firefox port of the Chrome version. It is based on the
+original project's Firefox branch and is kept in sync by merging the Chrome branch into it.
+
+Differences from the Chrome version:
+
+- Also replaces the Firefox home page (Firefox asks for confirmation on install)
+- New option "Get website icons from" (Firefox has no favicon API for extensions):
+  Favicon.ico, DuckDuckGo, Ecosia, Google, Icon Horse, Yandex or none
+- No "Apps" and "Other devices" (not available in Firefox)
+- No context menu shortcuts to chrome:// pages (History, Edit bookmarks, Clear browsing data)
+- The font list in the options is not available (type the font name instead)
+
+### Install without addons.mozilla.org
+
+Regular Firefox (Release/Beta) only installs signed add-ons. Pick one:
+
+1. **Self-signed, private (regular Firefox)**: create a free account on
+   https://addons.mozilla.org/developers/, choose *Submit a New Add-on* →
+   *On your own* (unlisted: not published, not searchable), upload the `.xpi`/`.zip`,
+   download the signed `.xpi` and open it in Firefox. Every update needs a higher
+   `version` in `manifest.json` and a new signature.
+2. **Unsigned (Firefox Developer Edition, Nightly or ESR only)**: in `about:config` set
+   `xpinstall.signatures.required` to `false`, then *about:addons* → gear icon →
+   *Install Add-on From File…* and pick the `.xpi`.
+3. **Temporary (any Firefox, for quick tests)**: `about:debugging#/runtime/this-firefox` →
+   *Load Temporary Add-on…* → pick `manifest.json`. It is removed when Firefox closes.
+
+Build the `.xpi` (files must be at the root of the archive):
+
+```bash
+zip -r -FS tx-hntp-firefox.xpi manifest.json newtab.html newtab.css newtab.js icons
+```
+
+Settings can be moved from Chrome with the options *Export*/*Import*, but the column
+layout won't carry over (bookmark IDs differ between browsers).
 
 License
 -------
@@ -22,6 +61,13 @@ This project is licensed under the **MIT License**, see [LICENSE_MIT.txt](LICENS
 
 Changelog
 ---------
+
+### Version 2.3.0 (Firefox) - November 26, 2026
+
+- First Firefox release in sync with Chrome 2.3.0 (pages, search, drag & drop reordering, moves between pages)
+- Search results use the selected website icon provider
+- Drag & drop fixes for Firefox (columns, folders, bookmarks) and bookmark reorder index adjusted for Firefox
+- Firefox "place:" smart bookmarks and separators are skipped in search results
 
 ### Version 2.3.0b - June 27, 2026
 

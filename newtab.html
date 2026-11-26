@@ -4,9 +4,24 @@
 <meta charset="utf-8" />
 <title>New Tab</title>
 <link rel="stylesheet" href="newtab.css">
-<link rel="icon" href="icons/icon_16.png">
 </head>
 <body>
+<div id="page-switcher">
+	<a class="page-btn active" data-page="1" tabindex="0">1</a>
+	<a class="page-btn" data-page="2" tabindex="0">2</a>
+	<a class="page-btn" data-page="3" tabindex="0">3</a>
+	<a class="page-btn" data-page="4" tabindex="0">4</a>
+	<a class="page-btn" data-page="5" tabindex="0">5</a>
+	<a class="page-btn" data-page="6" tabindex="0">6</a>
+	<a class="page-btn" data-page="7" tabindex="0">7</a>
+	<a class="page-btn" data-page="8" tabindex="0">8</a>
+	<a class="page-btn" data-page="9" tabindex="0">9</a>
+	<a class="page-btn" data-page="10" tabindex="0">0</a>
+	<div id="search-container">
+		<input id="search-input" type="text" placeholder="Search bookmarks or Google..." autocomplete="off" />
+		<div id="search-results"></div>
+	</div>
+</div>
 <div id="main">
 </div>
 <a id="options_button" title="Options" tabindex="0"></a>
@@ -26,6 +41,15 @@
 			<option value="1">New tab</option>
 			<option value="2">New tab (background)</option>
 		</select></label>
+		<label><span>Get website icons from</span><select id="options_icon_provider">
+			<option value="0">None</option>
+			<option value="1">Favicon.ico</option>
+			<option value="4">DuckDuckGo (duckduckgo.com)</option>
+			<option value="5">Ecosia (ecosia.org)</option>
+			<option value="2">Google (gstatic.com)</option>
+			<option value="3">Icon Horse (icon.horse)</option>
+			<option value="6">Yandex (yandex.net)</option>
+		</select></label>
 		<label><span>Lock columns</span><input id="options_lock" type="checkbox"/></label>
 		<label><span>Remember open folders</span><input id="options_remember_open" type="checkbox"/></label>
 		<label><span>Auto-close folders</span><input id="options_auto_close" type="checkbox"/></label>
@@ -34,15 +58,13 @@
 	</fieldset>
 	<fieldset>
 		<legend>Content</legend>
-		<label><span>Apps</span><input id="options_show_apps" type="checkbox"/></label>
 		<div id="options_show_bookmarks"></div>
 		<label><span>Most visited</span><input id="options_show_top" type="checkbox"/></label>
-		<label class="subopt"><span>Number of items</span><input id="options_number_top" type="number" min="1" max="10"/></label>
+		<label class="subopt"><span>Number of items</span><input id="options_number_top" type="number" min="1" max="12"/></label>
 		<label><span>Recent bookmarks</span><input id="options_show_recent" type="checkbox"/></label>
 		<label class="subopt"><span>Number of items</span><input id="options_number_recent" type="number" min="1" max="1000"/></label>
 		<label><span>Recently closed</span><input id="options_show_closed" type="checkbox"/></label>
 		<label class="subopt"><span>Number of items</span><input id="options_number_closed" type="number" min="1" max="25"/></label>
-		<label><span>Other devices</span><input id="options_show_devices" type="checkbox"/></label>
 	</fieldset>
 	</div><div class="section">
 	<fieldset>

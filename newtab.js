@@ -60,7 +60,7 @@ function render(node, target) {
 	// folder
 	if (node.children) {
 		// render children
-		if (a.open || getConfig('remember_open') && localStorage.getItem('open.' + node.id)) {
+		if (a.open || getConfig('remember_open') && localStorage.getItem(getPagePrefix() + 'open.' + node.id)) {
 			setClass(a, node, true);
 			a.open = true;
 			getChildrenFunction(node)(function(result) {
@@ -74,6 +74,8 @@ function render(node, target) {
 
 	} else if (node.id == 'apps')
 		enableDragFolder(node, a);
+	else if (url && node.id)
+		enableDragBookmark(node, a, li);
 
 	target.appendChild(li);
 	return li;
@@ -212,6 +214,15 @@ function addFolderHandlers(node, a) {
 					}
 				});
 		}
+
+		// move just this folder to another page (matches dragging the folder
+		// onto a different page number); only nested sub-folders qualify
+		var moveFolderItem = buildMoveToPageItem('Move folder to page', [node.id]);
+		if (moveFolderItem) {
+			if (items.length > 0 && items[items.length - 1] !== null)
+				items.push(null);
+			items.push(moveFolderItem);
+		}
 	}
 
 	a.oncontextmenu = function(event) {
@@ -268,6 +279,15 @@ function addColumnHandlers(index, ul) {
 					}
 				});
 		}
+	}
+
+	// move the whole column to another page (managed columns excluded: they
+	// have dedicated per-page show options instead)
+	var moveColumnItem = buildMoveToPageItem('Move column to page', ids);
+	if (moveColumnItem) {
+		if (items.length > 0 && items[items.length - 1] !== null)
+			items.push(null);
+		items.push(moveColumnItem);
 	}
 
 	if (items.length > 0)
@@ -330,9 +350,34 @@ function renderMenu(items, x, y) {
 			var a = document.createElement('a');
 			a.innerText = items[i].label;
 			a.tabIndex = 0;
-			a.onclick = onMenuClick(items[i]);
 
-			li.appendChild(a);
+			if (items[i].submenu) {
+				li.classList.add('has-submenu');
+				a.onclick = function() { return false; };
+				li.appendChild(a);
+				var subUl = document.createElement('ul');
+				subUl.className = 'menu submenu';
+				for (var j = 0; j < items[i].submenu.length; j++) {
+					var subLi = document.createElement('li');
+					var subItem = items[i].submenu[j];
+					if (subItem) {
+						var subA = document.createElement('a');
+						subA.innerText = subItem.label;
+						subA.tabIndex = 0;
+						subA.onclick = onMenuClick(subItem);
+						subLi.appendChild(subA);
+					} else if (j > 0 && j < items[i].submenu.length - 1) {
+						subLi.appendChild(document.createElement('hr'));
+					} else {
+						continue;
+					}
+					subUl.appendChild(subLi);
+				}
+				li.appendChild(subUl);
+			} else {
+				a.onclick = onMenuClick(items[i]);
+				li.appendChild(a);
+			}
 		} else if (i > 0 && i < items.length - 1)
 			li.appendChild(document.createElement('hr'));
 		else
@@ -421,6 +466,100 @@ function enableDragFolder(node, a) {
 	};
 }
 
+var dragBookmark = null;
+var bookmarkDropTarget = null;
+
+// enable drag and drop of individual bookmark for reordering
+function enableDragBookmark(node, a, li) {
+	if (getConfig('lock'))
+		return;
+
+	a.draggable = true;
+	a.ondragstart = function(event) {
+		dragBookmark = { node: node, li: li };
+		event.stopPropagation();
+		event.dataTransfer.effectAllowed = 'move';
+		this.classList.add('dragstart');
+	};
+	a.ondragend = function(event) {
+		dragBookmark = null;
+		this.classList.remove('dragstart');
+		clearBookmarkDropTarget();
+	};
+
+	li.ondragover = function(event) {
+		if (!dragBookmark || dragBookmark.node.parentId !== node.parentId)
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+		event.dataTransfer.dropEffect = 'move';
+
+		clearBookmarkDropTarget();
+		bookmarkDropTarget = li;
+		var bordercss = 'solid 2px ' + getConfig('font_color');
+		var rect = li.getBoundingClientRect();
+		var midpoint = rect.top + rect.height / 2;
+		if (event.clientY < midpoint) {
+			li.style.borderTop = bordercss;
+			li.style.marginTop = '-2px';
+		} else {
+			li.style.borderBottom = bordercss;
+			li.style.marginBottom = '-2px';
+		}
+	};
+
+	li.ondragleave = function(event) {
+		if (bookmarkDropTarget === li)
+			clearBookmarkDropTarget();
+	};
+
+	li.ondrop = function(event) {
+		if (!dragBookmark || dragBookmark.node.parentId !== node.parentId)
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+
+		var rect = li.getBoundingClientRect();
+		var midpoint = rect.top + rect.height / 2;
+		var insertBefore = event.clientY < midpoint;
+
+		// Get fresh index values from Chrome
+		chrome.bookmarks.get([dragBookmark.node.id, node.id], function(results) {
+			var sourceNode = results[0];
+			var targetNode = results[1];
+
+			var newIndex;
+			if (insertBefore) {
+				newIndex = targetNode.index;
+			} else {
+				newIndex = targetNode.index + 1;
+			}
+
+			// Chrome's bookmarks.move auto-adjusts the index when moving
+			// within the same parent (subtracts 1 if source index < new index),
+			// so we pass the raw target slot without pre-adjusting.
+			if (newIndex !== sourceNode.index && newIndex !== sourceNode.index + 1) {
+				chrome.bookmarks.move(sourceNode.id, { index: newIndex }, function() {
+					renderColumns();
+				});
+			}
+
+			clearBookmarkDropTarget();
+			dragBookmark = null;
+		});
+	};
+}
+
+function clearBookmarkDropTarget() {
+	if (bookmarkDropTarget) {
+		bookmarkDropTarget.style.borderTop = null;
+		bookmarkDropTarget.style.borderBottom = null;
+		bookmarkDropTarget.style.marginTop = null;
+		bookmarkDropTarget.style.marginBottom = null;
+	}
+	bookmarkDropTarget = null;
+}
+
 // init drag and drop handlers
 function enableDragDrop() {
 	var main = document.getElementById('main');
@@ -433,6 +572,8 @@ function enableDragDrop() {
 	}
 
 	main.ondragover = function(event) {
+		if (dragBookmark) return;
+		if (!dragIds) return; // ignore page-button drags
 		event.preventDefault();
 		event.dataTransfer.dropEffect = 'move';
 		// highlight drop target
@@ -716,7 +857,7 @@ function toggle(node, a) {
 	a.open = !isopen;
 	if (isopen) {
 		// close folder
-		localStorage.removeItem('open.' + node.id);
+		localStorage.removeItem(getPagePrefix() + 'open.' + node.id);
 		if (a.nextSibling){
 			// auto-close child folders
 			if (getConfig('auto_close')) {
@@ -732,7 +873,7 @@ function toggle(node, a) {
 		}
 	} else {
 		// open folder
-		localStorage.setItem('open.' + node.id, true);
+		localStorage.setItem(getPagePrefix() + 'open.' + node.id, true);
 		// auto-close sibling folders
 		if (getConfig('auto_close')) {
 			var siblings = a.parentNode.parentNode.children;
@@ -821,6 +962,334 @@ var columns; // columns[x][y] = id
 var root; // root[] = id
 var coords; // coords[id] = {x:x, y:y}
 var special = ['apps', 'top', 'recent', 'closed', 'devices'];
+var currentPage = 1; // current page (1-10)
+
+// true if a column/folder contains a "managed" item: a special item (Apps,
+// Most visited, Recent bookmarks, Recently closed, Other devices) or a
+// top-level bookmark folder (Bookmarks Bar, Other Bookmarks, ...). All of
+// these already have a dedicated per-page show option, so moving them
+// between pages is redundant and is not allowed. Only genuine nested
+// sub-folders can be moved across pages.
+function isManagedColumn(ids) {
+	for (var i = 0; i < ids.length; i++) {
+		if (special.indexOf(ids[i]) > -1)
+			return true;
+		if (root && root.indexOf(ids[i]) > -1)
+			return true;
+	}
+	return false;
+}
+
+// build a "Move ... to page" submenu item for the given ids, or null when
+// the ids can't be moved (locked, managed column, or no other page exists)
+function buildMoveToPageItem(label, ids) {
+	if (getConfig('lock') || isManagedColumn(ids))
+		return null;
+	var pageItems = [];
+	for (var p = 1; p <= 10; p++) {
+		if (p === currentPage) continue;
+		(function(destPage) {
+			pageItems.push({
+				label: 'Page ' + (destPage === 10 ? 0 : destPage),
+				action: function() {
+					moveDraggedToPage(ids.slice(), destPage);
+				}
+			});
+		})(p);
+	}
+	if (pageItems.length === 0)
+		return null;
+	return { label: label, submenu: pageItems };
+}
+
+// get storage key prefix for current page
+function getPagePrefix() {
+	return 'page.' + currentPage + '.';
+}
+
+// update which page button is highlighted as active
+function updateActivePageButton() {
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		var btnPage = parseInt(btn.getAttribute('data-page'));
+		if (btnPage === currentPage) {
+			btn.classList.add('active');
+		} else {
+			btn.classList.remove('active');
+		}
+	});
+}
+
+// switch to a different page
+function switchPage(pageNum) {
+	if (pageNum < 1 || pageNum > 10 || pageNum === currentPage) return;
+
+	// Save current page number
+	currentPage = pageNum;
+	localStorage.setItem('currentPage', currentPage);
+
+	updateActivePageButton();
+
+	// Update options UI for per-page settings (show_* checkboxes)
+	if (settingsInitialized) {
+		for (var key in config) {
+			if (key.substring(0, 5) === 'show_') {
+				showConfig(key);
+				onChange(key);  // Also update reset button visibility
+			}
+		}
+	}
+
+	// Reset root to force reload from bookmarks
+	root = null;
+
+	// Reload columns for the new page
+	loadColumns();
+}
+
+var draggedPageNum = null;
+
+// initialize page switcher buttons
+function initPageSwitcher() {
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		btn.onclick = function() {
+			var pageNum = parseInt(this.getAttribute('data-page'));
+			switchPage(pageNum);
+			return false;
+		};
+		enableDragPageButton(btn);
+	});
+
+	// Load saved current page
+	var savedPage = localStorage.getItem('currentPage');
+	if (savedPage) {
+		currentPage = parseInt(savedPage);
+		updateActivePageButton();
+	}
+}
+
+// enable drag and drop on a page button (page reorder + column-to-page drop)
+function enableDragPageButton(btn) {
+	btn.draggable = true;
+
+	btn.ondragstart = function(event) {
+		if (getConfig('lock')) {
+			event.preventDefault();
+			return;
+		}
+		draggedPageNum = parseInt(this.getAttribute('data-page'));
+		event.dataTransfer.effectAllowed = 'move';
+		event.dataTransfer.setData('text/plain', String(draggedPageNum));
+		this.classList.add('dragstart');
+	};
+
+	btn.ondragend = function(event) {
+		draggedPageNum = null;
+		this.classList.remove('dragstart');
+		clearPageDropIndicators();
+	};
+
+	btn.ondragover = function(event) {
+		if (getConfig('lock')) return;
+		var pageNum = parseInt(this.getAttribute('data-page'));
+		if (draggedPageNum != null) {
+			// page-to-page reorder
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = 'move';
+			clearPageDropIndicators();
+			var rect = this.getBoundingClientRect();
+			if (event.clientX < rect.left + rect.width / 2) {
+				this.classList.add('drop-before');
+			} else {
+				this.classList.add('drop-after');
+			}
+		} else if (dragIds && pageNum !== currentPage && !isManagedColumn(dragIds)) {
+			// column/folder to page move
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = 'move';
+			clearPageDropIndicators();
+			this.classList.add('drop-column');
+		}
+	};
+
+	btn.ondragleave = function(event) {
+		this.classList.remove('drop-before', 'drop-after', 'drop-column');
+	};
+
+	btn.ondrop = function(event) {
+		if (getConfig('lock')) return;
+		event.preventDefault();
+		event.stopPropagation();
+		var pageNum = parseInt(this.getAttribute('data-page'));
+		if (draggedPageNum != null) {
+			var rect = this.getBoundingClientRect();
+			var leftHalf = event.clientX < rect.left + rect.width / 2;
+			var insertPos = leftHalf ? pageNum : pageNum + 1;
+			reorderPages(draggedPageNum, insertPos);
+		} else if (dragIds && pageNum !== currentPage && !isManagedColumn(dragIds)) {
+			moveDraggedToPage(dragIds.slice(), pageNum);
+			dragIds = null;
+		}
+		clearPageDropIndicators();
+		return false;
+	};
+}
+
+function clearPageDropIndicators() {
+	var buttons = document.querySelectorAll('.page-btn');
+	buttons.forEach(function(btn) {
+		btn.classList.remove('drop-before', 'drop-after', 'drop-column');
+	});
+}
+
+// read all localStorage entries for a given page into a flat object
+function readPageState(pageNum) {
+	var prefix = 'page.' + pageNum + '.';
+	var state = {};
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && key.indexOf(prefix) === 0) {
+			state[key.substring(prefix.length)] = localStorage.getItem(key);
+		}
+	}
+	return state;
+}
+
+// remove all localStorage entries for any page.<n>.* key
+function clearAllPageStates() {
+	var keysToRemove = [];
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && /^page\.\d+\./.test(key)) {
+			keysToRemove.push(key);
+		}
+	}
+	for (var i = 0; i < keysToRemove.length; i++) {
+		localStorage.removeItem(keysToRemove[i]);
+	}
+}
+
+// write a state object back under page.<pageNum>.*
+function writePageState(pageNum, state) {
+	var prefix = 'page.' + pageNum + '.';
+	for (var key in state) {
+		localStorage.setItem(prefix + key, state[key]);
+	}
+}
+
+// reorder pages: move sourcePage so it ends up at the requested insertion point
+// insertPos is 1..11 (1 = before page 1, 11 = after page 10)
+function reorderPages(sourcePage, insertPos) {
+	if (sourcePage < 1 || sourcePage > 10) return;
+
+	var entries = [];
+	for (var p = 1; p <= 10; p++) {
+		entries.push({ original: p, data: readPageState(p) });
+	}
+
+	var insertIndex = insertPos - 1;
+	if (sourcePage < insertPos) insertIndex -= 1;
+	if (insertIndex === sourcePage - 1) return; // no-op
+
+	var moved = entries.splice(sourcePage - 1, 1)[0];
+	entries.splice(insertIndex, 0, moved);
+
+	// follow the page the user was viewing to its new index
+	var newCurrentPage = currentPage;
+	for (var i = 0; i < entries.length; i++) {
+		if (entries[i].original === currentPage) {
+			newCurrentPage = i + 1;
+			break;
+		}
+	}
+
+	clearAllPageStates();
+	for (var i = 0; i < entries.length; i++) {
+		writePageState(i + 1, entries[i].data);
+	}
+
+	currentPage = newCurrentPage;
+	localStorage.setItem('currentPage', currentPage);
+	updateActivePageButton();
+	root = null;
+	loadColumns();
+}
+
+// move a column (or folder) currently on the active page to another page,
+// placing it as the last column, then switch to that page
+function moveDraggedToPage(ids, destPage) {
+	if (destPage === currentPage || destPage < 1 || destPage > 10) return;
+
+	// Only genuine nested sub-folders move between pages. Root-managed items
+	// (special columns + top-level bookmark folders) are filtered out here as
+	// a safeguard: they have per-page show options and would otherwise be
+	// auto-re-added by verifyColumns on the source page anyway.
+	if (root) {
+		ids = ids.filter(function(id) { return root.indexOf(id) < 0; });
+	}
+	if (ids.length === 0) return;
+
+	var destPrefix = 'page.' + destPage + '.';
+
+	// remove ids from current page's in-memory columns
+	for (var x = 0; x < columns.length; x++) {
+		for (var y = 0; y < columns[x].length; y++) {
+			if (ids.indexOf(columns[x][y]) > -1) {
+				columns[x].splice(y, 1);
+				y--;
+			}
+		}
+	}
+	for (var x = columns.length - 1; x >= 0; x--) {
+		if (columns[x].length === 0) columns.splice(x, 1);
+	}
+	saveColumns();
+
+	// load destination page's columns from storage
+	var destColumns = [];
+	for (var x = 0; ; x++) {
+		var row = [];
+		for (var y = 0; ; y++) {
+			var id = localStorage.getItem(destPrefix + 'column.' + x + '.' + y);
+			if (id) row.push(id); else break;
+		}
+		if (row.length > 0) destColumns.push(row); else break;
+	}
+
+	// remove ids from destination if already present elsewhere on that page
+	for (var x = destColumns.length - 1; x >= 0; x--) {
+		for (var y = destColumns[x].length - 1; y >= 0; y--) {
+			if (ids.indexOf(destColumns[x][y]) > -1) {
+				destColumns[x].splice(y, 1);
+			}
+		}
+		if (destColumns[x].length === 0) destColumns.splice(x, 1);
+	}
+
+	destColumns.push(ids.slice());
+
+	// clear and rewrite destination column.* keys
+	var keysToRemove = [];
+	for (var i = 0; i < localStorage.length; i++) {
+		var key = localStorage.key(i);
+		if (key && key.indexOf(destPrefix + 'column.') === 0) {
+			keysToRemove.push(key);
+		}
+	}
+	for (var i = 0; i < keysToRemove.length; i++) {
+		localStorage.removeItem(keysToRemove[i]);
+	}
+	for (var x = 0; x < destColumns.length; x++) {
+		for (var y = 0; y < destColumns[x].length; y++) {
+			localStorage.setItem(destPrefix + 'column.' + x + '.' + y, destColumns[x][y]);
+		}
+	}
+
+	switchPage(destPage);
+}
 
 // ensure root folders are included
 function verifyColumns() {
@@ -864,11 +1333,12 @@ function verifyColumns() {
 
 // load columns from storage or default
 function loadColumns() {
+	var prefix = getPagePrefix();
 	columns = [];
 	for (var x = 0; ; x++) {
 		var row = [];
 		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
+			var id = localStorage.getItem(prefix + 'column.' + x + '.' + y);
 			if (id) row.push(id); else break;
 		}
 		if (row.length > 0) columns.push(row); else break;
@@ -894,12 +1364,13 @@ function loadColumns() {
 
 // saves current column configuration to storage
 function saveColumns() {
+	var prefix = getPagePrefix();
 	// clear previous config
 	for (var x = 0; ; x++) {
 		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
+			var id = localStorage.getItem(prefix + 'column.' + x + '.' + y);
 			if (id)
-				localStorage.removeItem('column.' + x + '.' + y);
+				localStorage.removeItem(prefix + 'column.' + x + '.' + y);
 			else
 				break;
 		}
@@ -910,7 +1381,7 @@ function saveColumns() {
 	// save new config
 	for (var x = 0; x < columns.length; x++) {
 		for (var y = 0; y < columns[x].length; y++) {
-			localStorage.setItem('column.' + x +'.' + y, columns[x][y]);
+			localStorage.setItem(prefix + 'column.' + x +'.' + y, columns[x][y]);
 		}
 	}
 	// refresh
@@ -1181,7 +1652,12 @@ var theme = {};
 
 // get config value or default
 function getConfig(key) {
-	var value = localStorage.getItem('options.' + key);
+	// Per-page options: show_* settings
+	var storageKey = 'options.' + key;
+	if (key.substring(0, 5) === 'show_') {
+		storageKey = getPagePrefix() + 'options.' + key;
+	}
+	var value = localStorage.getItem(storageKey);
 	if (value != null)
 		return typeof config[key] === 'number' ? Number(value) : value;
 	else
@@ -1190,10 +1666,15 @@ function getConfig(key) {
 
 // set config value
 function setConfig(key, value) {
+	// Per-page options: show_* settings
+	var storageKey = 'options.' + key;
+	if (key.substring(0, 5) === 'show_') {
+		storageKey = getPagePrefix() + 'options.' + key;
+	}
 	if (value != null)
-		localStorage.setItem('options.' + key, typeof config[key] === 'number' ? Number(value) : value);
+		localStorage.setItem(storageKey, typeof config[key] === 'number' ? Number(value) : value);
 	else {
-		localStorage.removeItem('options.' + key);
+		localStorage.removeItem(storageKey);
 		value = (theme.hasOwnProperty(key) ? theme[key] : config[key]);
 	}
 	// special case settings
@@ -1237,9 +1718,9 @@ function getStyle(key, value) {
 		case 'background_color':
 			return 'body { background-color: ' + value + '; }';
 		case 'background_image':
-			return 'body { background-image: url(' + value + '); }';
+			return value ? 'body { background-image: url(' + value + '); }' : null;
 		case 'background_image_file':
-			return 'body { background-image: url(' + value + '); }';
+			return value ? 'body { background-image: url(' + value + '); }' : null;
 		case 'background_align':
 			return 'body { background-position: ' + value + '; }';
 		case 'background_repeat':
@@ -1579,6 +2060,7 @@ function showOptions(show) {
 }
 
 // initialize page
+initPageSwitcher();
 loadSettings();
 loadColumns();
 
@@ -1587,6 +2069,32 @@ document.addEventListener('keypress', function(event) {
 	if (event.keyCode == 13 && event.target && event.target.onclick && event.target.tagName == 'A') {
 		event.target.dispatchEvent(new MouseEvent('click'));
 		event.preventDefault();
+	}
+
+	// Skip if typing in options inputs or textareas
+	if (event.target.tagName === 'TEXTAREA' ||
+		(event.target.tagName === 'INPUT' && event.target.id !== 'search-input')) {
+		return;
+	}
+
+	var key = event.key;
+	var searchInput = document.getElementById('search-input');
+
+	// Page switching with number keys (only when search bar is NOT focused)
+	if (event.target !== searchInput && (key >= '0' && key <= '9')) {
+		if (key >= '1' && key <= '9') {
+			switchPage(parseInt(key));
+		} else if (key === '0') {
+			switchPage(10);
+		}
+		event.preventDefault();
+		return;
+	}
+
+	// Auto-focus search bar for non-number keys when not already in it
+	if (event.target !== searchInput && key.length === 1) {
+		searchInput.focus();
+		// The character will be typed into the search input naturally
 	}
 });
 document.addEventListener('mousedown', function(event) {
@@ -1611,3 +2119,156 @@ if (location.search === '?options')
 // refresh recently closed
 if (chrome.sessions)
 	chrome.sessions.onChanged.addListener(refreshClosed);
+
+// --- Search bar ---
+
+var searchInput = document.getElementById('search-input');
+var searchResults = document.getElementById('search-results');
+var searchTimeout = null;
+var selectedIndex = -1;
+
+// search bookmarks and show results
+function searchBookmarks(query) {
+	if (!query || query.length < 2) {
+		hideSearchResults();
+		return;
+	}
+	chrome.bookmarks.search(query, function(results) {
+		// filter to only bookmarks with URLs (no folders)
+		var allBookmarks = results.filter(function(b) { return b.url; });
+		var bookmarks = allBookmarks.slice(0, 20);
+		showSearchResults(bookmarks, query, allBookmarks.length);
+	});
+}
+
+// render search results dropdown
+function showSearchResults(bookmarks, query, totalCount) {
+	searchResults.innerHTML = '';
+	selectedIndex = -1;
+
+	if (bookmarks.length === 0) {
+		searchResults.style.display = 'none';
+		return;
+	}
+
+	// Show count indicator if there are more results
+	if (totalCount > 20) {
+		var countDiv = document.createElement('div');
+		countDiv.className = 'search-count';
+		countDiv.textContent = 'Showing 20 of ' + totalCount + ' results';
+		searchResults.appendChild(countDiv);
+	}
+
+	for (var i = 0; i < bookmarks.length; i++) {
+		var a = document.createElement('a');
+		a.href = bookmarks[i].url;
+		a.title = bookmarks[i].url;
+
+		// Add favicon
+		var icon = document.createElement('img');
+		icon.className = 'search-icon';
+		icon.src = '/_favicon/?pageUrl=' + encodeURIComponent(bookmarks[i].url) + '&size=16';
+		icon.alt = '';
+		a.appendChild(icon);
+
+		var titleSpan = document.createElement('span');
+		titleSpan.className = 'search-title';
+		titleSpan.textContent = bookmarks[i].title || bookmarks[i].url;
+		a.appendChild(titleSpan);
+
+		var urlSpan = document.createElement('span');
+		urlSpan.className = 'search-url';
+		urlSpan.textContent = bookmarks[i].url;
+		a.appendChild(urlSpan);
+
+		a.onmousedown = function(e) {
+			// prevent blur from hiding results before click fires
+			e.preventDefault();
+		};
+		a.onclick = function(e) {
+			e.preventDefault();
+			var newtab = getConfig('newtab');
+			openLink({ url: this.href }, newtab);
+			clearSearch();
+		};
+
+		searchResults.appendChild(a);
+	}
+
+	searchResults.style.display = 'block';
+}
+
+// hide results dropdown
+function hideSearchResults() {
+	searchResults.style.display = 'none';
+	selectedIndex = -1;
+}
+
+// clear search input and results
+function clearSearch() {
+	searchInput.value = '';
+	hideSearchResults();
+}
+
+// input handler with debounce
+searchInput.addEventListener('input', function() {
+	if (searchTimeout) clearTimeout(searchTimeout);
+	searchTimeout = setTimeout(function() {
+		searchBookmarks(searchInput.value.trim());
+	}, 150);
+});
+
+// keyboard navigation in search
+searchInput.addEventListener('keydown', function(event) {
+	var items = searchResults.querySelectorAll('a');
+
+	if (event.key === 'ArrowDown') {
+		event.preventDefault();
+		if (items.length > 0) {
+			selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+			updateSelectedResult(items);
+		}
+	} else if (event.key === 'ArrowUp') {
+		event.preventDefault();
+		if (items.length > 0) {
+			selectedIndex = Math.max(selectedIndex - 1, -1);
+			updateSelectedResult(items);
+		}
+	} else if (event.key === 'Enter') {
+		event.preventDefault();
+		if (selectedIndex >= 0 && items[selectedIndex]) {
+			// open selected bookmark
+			var newtab = getConfig('newtab');
+			openLink({ url: items[selectedIndex].href }, newtab);
+			clearSearch();
+		} else if (searchInput.value.trim()) {
+			// search Google
+			var newtab = getConfig('newtab');
+			openLink({ url: 'https://www.google.com/search?q=' + encodeURIComponent(searchInput.value.trim()) }, newtab);
+			clearSearch();
+		}
+	} else if (event.key === 'Escape') {
+		clearSearch();
+		searchInput.blur();
+	}
+});
+
+// highlight selected result
+function updateSelectedResult(items) {
+	for (var i = 0; i < items.length; i++) {
+		if (i === selectedIndex)
+			items[i].classList.add('selected');
+		else
+			items[i].classList.remove('selected');
+	}
+	// scroll into view
+	if (selectedIndex >= 0 && items[selectedIndex])
+		items[selectedIndex].scrollIntoView({ block: 'nearest' });
+}
+
+// close results when clicking outside
+document.addEventListener('click', function(event) {
+	if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+		hideSearchResults();
+	}
+});
